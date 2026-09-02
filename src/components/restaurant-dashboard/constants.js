@@ -1,0 +1,51 @@
+export const OUTLET_STATUS_FILTERS = [
+  { id: "ALL", label: "All Statuses" },
+  { id: "UNDER REVIEW", label: "Under Review" },
+  { id: "IN PROGRESS", label: "In Progress" },
+  { id: "READY TO GO LIVE", label: "Ready To Go Live" },
+  { id: "APPROVED", label: "Approved" },
+  { id: "REJECTED", label: "Rejected" },
+];
+
+export const STEP_STATUS_STYLES = {
+  APPROVED: {
+    card: "bg-emerald-600 text-white border border-emerald-500 shadow-md shadow-emerald-600/20",
+    badge: "bg-white/20 text-white border border-white/30 backdrop-blur-xs font-semibold",
+    dot: "bg-white",
+    title: "text-white font-bold",
+    desc: "text-emerald-100",
+    iconBg: "bg-white text-emerald-700 shadow-sm",
+    time: "text-emerald-200/90",
+    label: "Approved",
+  },
+  INITIATED_FOR_REVIEW: {
+    card: "bg-blue-600 text-white border border-blue-500 shadow-md shadow-blue-600/25 ring-2 ring-blue-400/30",
+    badge: "bg-black/25 text-white border border-blue-300/40 backdrop-blur-xs font-semibold",
+    dot: "bg-white animate-pulse",
+    title: "text-white font-bold",
+    desc: "text-blue-100",
+    iconBg: "bg-white text-blue-700 shadow-sm",
+    time: "text-blue-200/90",
+    label: "Under review",
+  },
+  IN_PROGRESS: {
+    card: "bg-sky-600 text-white border border-sky-500 shadow-md shadow-sky-600/20",
+    badge: "bg-white/20 text-white border border-white/30 backdrop-blur-xs font-semibold",
+    dot: "bg-white animate-pulse",
+    title: "text-white font-bold",
+    desc: "text-sky-100",
+    iconBg: "bg-white text-sky-700 shadow-sm",
+    time: "text-sky-200/90",
+    label: "In Progress",
+  },
+  REJECTED: {
+    card: "bg-red-600 text-white border border-red-500 shadow-md shadow-red-600/25 ring-2 ring-red-400/30",
+    badge: "bg-black/25 text-white border border-red-300/40 backdrop-blur-xs font-semibold",
+    dot: "bg-white",
+    title: "text-white font-bold",
+    desc: "text-red-100",
+    iconBg: "bg-white text-red-700 shadow-sm",
+    time: "text-red-200/90",
+    label: "Rejected",
+  },
+};
