@@ -3,3 +3,4 @@ export { default as StatsOverview } from "./StatsOverview";
 export { default as FilterToolbar } from "./FilterToolbar";
 export { default as RestaurantCard } from "./RestaurantCard";
 export { default as StepPipeline } from "./StepPipeline";
+export { default as EmailPreviewSheet } from "./EmailPreviewSheet";

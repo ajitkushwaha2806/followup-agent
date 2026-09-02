@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Clock, Eye, EyeOff, Copy, Check, RefreshCw, Edit3, Trash2, ArrowRight, Store } from "lucide-react";
-import { formatDate, maskCookie } from "../helpers";
+import { Clock, RefreshCw, Edit3, Trash2, ArrowRight, Store } from "lucide-react";
+import { formatDate } from "../helpers";
 
-export default function CredentialCard({ item, isVisible, isTesting, isCopied, onToggleVisibility, onCopy, onTestConnection, onEdit, onDeleteConfirm }) {
+export default function CredentialCard({ item, isTesting, onTestConnection, onEdit, onDeleteConfirm }) {
   const isActive = item.status === "ACTIVE";
 
   return (
@@ -40,44 +40,6 @@ export default function CredentialCard({ item, isVisible, isTesting, isCopied, o
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                 EXPIRED
               </span>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-zinc-50 dark:bg-zinc-950/70 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 mb-4 space-y-2">
-          <div className="flex items-center justify-between text-xs text-zinc-500">
-            <span className="font-mono uppercase tracking-wider text-[10px]">Merchant Cookie</span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => onToggleVisibility(item._id)}
-                className="p-1 hover:text-zinc-800 dark:hover:text-zinc-200 rounded transition-colors cursor-pointer"
-                title={isVisible ? "Hide Cookie" : "Show Cookie"}
-              >
-                {isVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-              </button>
-              <button
-                onClick={() => onCopy(item.cookie, item._id)}
-                className="p-1 hover:text-zinc-800 dark:hover:text-zinc-200 rounded transition-colors cursor-pointer"
-                title="Copy Cookie"
-              >
-                {isCopied ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-500" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          <div className="font-mono text-xs text-zinc-700 dark:text-zinc-300 break-all select-all">
-            {isVisible ? (
-              <p className="max-h-16 overflow-y-auto leading-relaxed scrollbar-thin">
-                {item.cookie}
-              </p>
-            ) : (
-              <p className="text-zinc-400 tracking-widest">
-                {maskCookie(item.cookie)}
-              </p>
             )}
           </div>
         </div>

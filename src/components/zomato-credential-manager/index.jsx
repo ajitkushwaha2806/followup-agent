@@ -8,8 +8,8 @@ import { filterCredentials } from "./helpers";
 import {
   HeaderBanner,
   AlertNotifications,
-  SearchAndFilters,
-  CredentialCard,
+  FilterToolbar,
+  CredentialTable,
   EmptyState,
   CredentialModal,
   DeleteConfirmModal,
@@ -20,7 +20,7 @@ export default function ZomatoCredentialsManager() {
   const queryClient = useQueryClient();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [successMessage, setSuccessMessage] = useState(null);
   const [customError, setCustomError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -216,13 +216,11 @@ export default function ZomatoCredentialsManager() {
         onClearError={() => setCustomError(null)}
       />
 
-      <SearchAndFilters
+      <FilterToolbar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
-        onRefresh={() => refetch()}
-        isFetching={isFetching}
       />
 
       {isLoading ? (
@@ -234,30 +232,21 @@ export default function ZomatoCredentialsManager() {
         </div>
       ) : filteredCredentials.length === 0 ? (
         <EmptyState
-          hasSearchOrFilter={Boolean(searchQuery || statusFilter !== "all")}
+          hasSearchOrFilter={Boolean(searchQuery || statusFilter !== "ALL")}
           onResetFilters={() => {
             setSearchQuery("");
-            setStatusFilter("all");
+            setStatusFilter("ALL");
           }}
           onOpenAddModal={() => handleOpenModal()}
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCredentials.map((item) => (
-            <CredentialCard
-              key={item._id}
-              item={item}
-              isVisible={visibleCookies[item._id]}
-              isTesting={testingId === item._id && testMutation.isPending}
-              isCopied={copiedId === item._id}
-              onToggleVisibility={toggleCookieVisibility}
-              onCopy={copyToClipboard}
-              onTestConnection={handleTestConnection}
-              onEdit={handleOpenModal}
-              onDeleteConfirm={setDeleteConfirmItem}
-            />
-          ))}
-        </div>
+        <CredentialTable
+          credentials={filteredCredentials}
+          searchQuery={searchQuery}
+          statusFilter={statusFilter}
+          onEdit={handleOpenModal}
+          onDeleteConfirm={setDeleteConfirmItem}
+        />
       )}
 
       <CredentialModal

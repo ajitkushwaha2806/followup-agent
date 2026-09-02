@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, RefreshCw, Store, ShieldCheck, AlertCircle } from "lucide-react";
+import { UserButton, SignedIn } from "@clerk/nextjs";
 
 export default function DashboardHeader({
   credential,
@@ -42,7 +43,7 @@ export default function DashboardHeader({
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <button
           onClick={onRefresh}
           title="Refresh outlet listing"
@@ -51,6 +52,12 @@ export default function DashboardHeader({
           <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin text-red-500" : ""}`} />
           <span>Refresh</span>
         </button>
+
+        <SignedIn>
+          <div className="flex items-center pl-2 border-l border-zinc-200 dark:border-zinc-800">
+            <UserButton afterSignOutUrl="/sign-in" />
+          </div>
+        </SignedIn>
       </div>
     </div>
   );

@@ -181,12 +181,19 @@ export default function RestaurantDashboard({ credentialId }) {
           )}
         </div>
       ) : (
-        /* List of Outlets */
         <div className="space-y-6">
           {filteredList.map((restaurant) => (
             <RestaurantCard
               key={restaurant.resId || restaurant.name}
               restaurant={restaurant}
+              merchantUser={
+                credential
+                  ? {
+                      name: credential.name,
+                      email: credential.email,
+                    }
+                  : null
+              }
             />
           ))}
         </div>

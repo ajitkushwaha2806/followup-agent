@@ -1,4 +1,5 @@
 import { Plus } from "lucide-react";
+import { UserButton, SignedIn } from "@clerk/nextjs";
 
 export default function HeaderBanner({ onOpenAddModal }) {
   return (
@@ -12,7 +13,7 @@ export default function HeaderBanner({ onOpenAddModal }) {
         </p>
       </div>
 
-      <div>
+      <div className="flex items-center gap-3">
         <button
           onClick={() => onOpenAddModal()}
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs transition-all shadow-md shadow-red-600/20 hover:shadow-lg active:scale-[0.98] cursor-pointer"
@@ -20,6 +21,12 @@ export default function HeaderBanner({ onOpenAddModal }) {
           <Plus className="w-4 h-4 stroke-[2.5]" />
           <span>Add Credential</span>
         </button>
+
+        <SignedIn>
+          <div className="flex items-center pl-2 border-l border-zinc-200 dark:border-zinc-800">
+            <UserButton afterSignOutUrl="/sign-in" />
+          </div>
+        </SignedIn>
       </div>
     </div>
   );

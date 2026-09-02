@@ -1,8 +1,5 @@
 import axios from "axios";
-
-const client = axios.create({
-    timeout: 30000,
-});
+import { HttpsProxyAgent } from "https-proxy-agent";
 
 export async function apiClient({
     req,
@@ -33,14 +30,23 @@ export async function apiClient({
                 : "application/json";
     }
 
+    const proxyUrl = process.env.WEBSHARE_PROXY_URL || process.env.PROXY_URL;
+    const httpsAgent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
+
     try {
-        const { data: response } = await client.request({
+        const { data: response } = await axios.request({
             baseURL,
             url: endpoint,
             method,
             data,
             params,
             headers: finalHeaders,
+            timeout: 30000,
+            ...(httpsAgent && {
+                httpsAgent,
+                httpAgent: httpsAgent,
+                proxy: false,
+            }),
         });
 
         return response;

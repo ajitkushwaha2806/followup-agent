@@ -1,7 +1,9 @@
 export { default as HeaderBanner } from "./HeaderBanner";
 export { default as AlertNotifications } from "./AlertNotifications";
+export { default as FilterToolbar } from "./FilterToolbar";
 export { default as SearchAndFilters } from "./SearchAndFilters";
 export { default as CredentialCard } from "./CredentialCard";
+export { default as CredentialTable } from "./CredentialTable";
 export { default as EmptyState } from "./EmptyState";
 export { default as CredentialModal } from "./CredentialModal";
 export { default as DeleteConfirmModal } from "./DeleteConfirmModal";
