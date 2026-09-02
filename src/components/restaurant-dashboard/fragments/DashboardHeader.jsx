@@ -1,6 +1,8 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowLeft, RefreshCw, Store, ShieldCheck, AlertCircle } from "lucide-react";
-import { UserButton, SignedIn } from "@clerk/nextjs";
+import { ArrowLeft, RefreshCw } from "lucide-react";
+import { UserButton } from "@clerk/nextjs";
 
 export default function DashboardHeader({
   credential,
@@ -53,11 +55,9 @@ export default function DashboardHeader({
           <span>Refresh</span>
         </button>
 
-        <SignedIn>
-          <div className="flex items-center pl-2 border-l border-zinc-200 dark:border-zinc-800">
-            <UserButton afterSignOutUrl="/sign-in" />
-          </div>
-        </SignedIn>
+        <div className="flex items-center pl-2 border-l border-zinc-200 dark:border-zinc-800">
+          <UserButton fallback={null} />
+        </div>
       </div>
     </div>
   );

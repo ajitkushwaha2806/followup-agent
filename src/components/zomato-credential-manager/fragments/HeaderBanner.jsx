@@ -1,5 +1,7 @@
+"use client";
+
 import { Plus } from "lucide-react";
-import { UserButton, SignedIn } from "@clerk/nextjs";
+import { UserButton } from "@clerk/nextjs";
 
 export default function HeaderBanner({ onOpenAddModal }) {
   return (
@@ -22,11 +24,9 @@ export default function HeaderBanner({ onOpenAddModal }) {
           <span>Add Credential</span>
         </button>
 
-        <SignedIn>
-          <div className="flex items-center pl-2 border-l border-zinc-200 dark:border-zinc-800">
-            <UserButton afterSignOutUrl="/sign-in" />
-          </div>
-        </SignedIn>
+        <div className="flex items-center pl-2 border-l border-zinc-200 dark:border-zinc-800">
+          <UserButton fallback={null} />
+        </div>
       </div>
     </div>
   );
