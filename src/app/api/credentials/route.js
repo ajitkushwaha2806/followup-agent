@@ -2,6 +2,7 @@ import dbConnect from "@/lib/dbConnect";
 import { NextResponse } from "next/server";
 import Credential from "@/models/Credential";
 import { validateRequiredFields } from "@/lib/helpers";
+import { verifyZomatoCookie } from "@/services/backend/credentialVerification";
 
 export async function GET() {
   try {
@@ -34,17 +35,33 @@ export async function POST(req) {
 
     const { name, cookie, status } = body;
 
+    // Verify session cookie with Zomato GET_USER_DETAILS
+    const verification = await verifyZomatoCookie(cookie);
+
+    const finalStatus = verification.status;
+
     const credential = await Credential.create({
       name: name.trim(),
       cookie: cookie.trim(),
-      ...(status && { status }),
+      status: finalStatus,
+      ...(verification.email && { email: verification.email }),
+      ...(verification.userId && { userId: verification.userId }),
+      ...(verification.userData && { userDetails: verification.userData }),
+      lastVerifiedAt: new Date(),
     });
+
+    const successDetail = verification.isValid
+      ? `Verified (${verification.name || verification.email || "Active User"}). Status: ACTIVE.`
+      : `Saved, but verification failed: ${verification.error || "Session expired"}. Status: EXPIRED.`;
 
     return NextResponse.json(
       {
         success: true,
-        message: "Credential created successfully",
+        isValid: verification.isValid,
+        status: finalStatus,
+        message: `Credential created successfully. ${successDetail}`,
         data: credential,
+        user: verification.userData,
       },
       { status: 201 }
     );

@@ -1,8 +1,7 @@
 import dbConnect from "@/lib/dbConnect";
 import { NextResponse } from "next/server";
 import Credential from "@/models/Credential";
-import { apiClient } from "@/lib/api/client";
-import { ZOMATO_ENDPOINTS } from "@/services/zomato-endpoints";
+import { verifyZomatoCookie } from "@/services/backend/credentialVerification";
 
 export async function POST(req, { params }) {
   try {
@@ -17,48 +16,29 @@ export async function POST(req, { params }) {
       );
     }
 
-    let isValid = false;
-    let errorDetail = null;
-    let userData = null;
-
-    try {
-      const response = await apiClient({
-        endpoint: ZOMATO_ENDPOINTS.GET_USER_DETAILS,
-        method: "GET",
-        headers: {
-          Cookie: credential.cookie,
-        },
-      });
-
-      const user = response?.data || response;
-      if (user && (user.user_id || user.name || user.email)) {
-        isValid = true;
-        userData = user;
-      } else {
-        isValid = false;
-        errorDetail = "Invalid user details received";
-      }
-    } catch (err) {
-      errorDetail = err.message || "Unauthorized (401) or expired session";
-    }
+    const verification = await verifyZomatoCookie(credential.cookie);
 
     const updated = await Credential.findByIdAndUpdate(
       id,
       {
-        status: isValid ? "ACTIVE" : "EXPIRED",
+        status: verification.status,
+        ...(verification.email && { email: verification.email }),
+        ...(verification.userId && { userId: verification.userId }),
+        ...(verification.userData && { userDetails: verification.userData }),
+        lastVerifiedAt: new Date(),
       },
       { new: true }
     );
 
     return NextResponse.json({
       success: true,
-      isValid,
+      isValid: verification.isValid,
       status: updated.status,
-      message: isValid
-        ? `Session verified (${userData?.name || "Active User"}). Status is ACTIVE.`
-        : `Verification failed: ${errorDetail}. Status is EXPIRED.`,
+      message: verification.isValid
+        ? `Session verified (${verification.name || verification.email || "Active User"}). Status is ACTIVE.`
+        : `Verification failed: ${verification.error || "Session expired"}. Status is EXPIRED.`,
       data: updated,
-      user: userData,
+      user: verification.userData,
     });
   } catch (error) {
     console.error("Error testing credential:", error);

@@ -3,10 +3,18 @@
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { credentialService } from "@/services/frontend/credentialService";
-import { Clock, Edit3, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { Clock, Edit3, Trash2, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { formatDate } from "../helpers";
 
-function CredentialTableRow({ item, searchQuery = "", statusFilter = "ALL", onEdit, onDeleteConfirm }) {
+function CredentialTableRow({
+  item,
+  searchQuery = "",
+  statusFilter = "ALL",
+  onEdit,
+  onDeleteConfirm,
+  onTestConnection,
+  isTesting = false,
+}) {
   const router = useRouter();
 
   const {
@@ -78,6 +86,7 @@ function CredentialTableRow({ item, searchQuery = "", statusFilter = "ALL", onEd
             <div className="text-xs text-zinc-400 flex items-center gap-1 mt-0.5">
               <Clock className="w-3 h-3" />
               <span>{formatDate(item.createdAt)}</span>
+              {item.email && <span className="text-zinc-500">· {item.email}</span>}
             </div>
           </div>
         </div>
@@ -176,6 +185,22 @@ function CredentialTableRow({ item, searchQuery = "", statusFilter = "ALL", onEd
       {/* Actions column */}
       <td className="py-4 px-6 whitespace-nowrap text-right">
         <div className="flex items-center justify-end gap-1.5">
+          {onTestConnection && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onTestConnection(item._id);
+              }}
+              disabled={isTesting}
+              className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors disabled:opacity-50 cursor-pointer"
+              title="Test & Verify Session Cookie"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${isTesting ? "animate-spin text-red-500" : ""}`}
+              />
+            </button>
+          )}
+
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -209,6 +234,8 @@ export default function CredentialTable({
   statusFilter = "ALL",
   onEdit,
   onDeleteConfirm,
+  onTestConnection,
+  testingId,
 }) {
   return (
     <div className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
@@ -231,6 +258,8 @@ export default function CredentialTable({
                 statusFilter={statusFilter}
                 onEdit={onEdit}
                 onDeleteConfirm={onDeleteConfirm}
+                onTestConnection={onTestConnection}
+                isTesting={testingId === item._id}
               />
             ))}
           </tbody>

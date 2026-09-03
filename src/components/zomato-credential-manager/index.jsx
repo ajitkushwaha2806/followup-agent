@@ -163,7 +163,6 @@ export default function ZomatoCredentialsManager() {
         payload: {
           name: formData.name,
           cookie: formData.cookie,
-          status: editingItem.status,
         },
       });
     } else {
@@ -246,6 +245,8 @@ export default function ZomatoCredentialsManager() {
           statusFilter={statusFilter}
           onEdit={handleOpenModal}
           onDeleteConfirm={setDeleteConfirmItem}
+          onTestConnection={handleTestConnection}
+          testingId={testingId}
         />
       )}
 

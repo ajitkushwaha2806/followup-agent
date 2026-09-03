@@ -89,7 +89,7 @@ export default function CredentialModal({
             />
             <p className="text-[11px] text-zinc-400 mt-1">
               Ensure the cookie includes active session identifiers from{" "}
-              <span className="font-mono">zomato.com/merchant</span>.
+              <span className="font-mono">zomato.com/merchant</span>. Cookie will be verified live with Zomato upon submission.
             </p>
           </div>
 
@@ -107,7 +107,13 @@ export default function CredentialModal({
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-all shadow-md hover:shadow-lg disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting && <RefreshCw className="w-4 h-4 animate-spin" />}
-              <span>{editingItem ? "Save Changes" : "Create Credential"}</span>
+              <span>
+                {isSubmitting
+                  ? "Verifying & Saving..."
+                  : editingItem
+                  ? "Save & Verify"
+                  : "Create & Verify"}
+              </span>
             </button>
           </div>
         </form>

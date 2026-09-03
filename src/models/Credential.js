@@ -18,6 +18,20 @@ const CredentialSchema = new mongoose.Schema(
       enum: ["ACTIVE", "EXPIRED"],
       default: "EXPIRED",
     },
+    email: {
+      type: String,
+      trim: true,
+    },
+    userId: {
+      type: String,
+      trim: true,
+    },
+    userDetails: {
+      type: mongoose.Schema.Types.Mixed,
+    },
+    lastVerifiedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true,
