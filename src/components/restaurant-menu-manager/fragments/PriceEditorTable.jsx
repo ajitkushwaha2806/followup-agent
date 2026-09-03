@@ -15,6 +15,14 @@ import {
   Save,
   CheckSquare,
   Upload,
+  Folder,
+  FolderOpen,
+  ChevronRight,
+  ChevronDown,
+  Layers,
+  Square,
+  MinusSquare,
+  Utensils,
 } from "lucide-react";
 
 const PriceEditorTable = forwardRef(function PriceEditorTable(
@@ -39,8 +47,10 @@ const PriceEditorTable = forwardRef(function PriceEditorTable(
   const [bulkAction, setBulkAction] = useState("increase"); // "increase" | "decrease"
   const [bulkMode, setBulkMode] = useState("percentage"); // "percentage" | "flat"
   const [bulkValue, setBulkValue] = useState("");
-  const [roundMode, setRoundMode] = useState("nearest9");
-  const [bulkTarget, setBulkTarget] = useState("all");
+  const [roundMode, setRoundMode] = useState("next9"); // Default to Round to Next 9
+  const [selectedItemIds, setSelectedItemIds] = useState(new Set());
+  const [expandedCategories, setExpandedCategories] = useState(new Set());
+  const [expandedSubCategories, setExpandedSubCategories] = useState(new Set());
 
   useEffect(() => {
     setLocalCategories(categories);
@@ -84,6 +94,14 @@ const PriceEditorTable = forwardRef(function PriceEditorTable(
     });
     return list;
   }, [localCategories]);
+
+  // When modal opens or items change, select entire menu and expand categories by default
+  useEffect(() => {
+    if (allItems.length > 0) {
+      setSelectedItemIds(new Set(allItems.map((i) => i.id)));
+      setExpandedCategories(new Set(localCategories.map((_, idx) => String(idx))));
+    }
+  }, [allItems, localCategories]);
 
   // Filter items
   const filteredItems = useMemo(() => {
@@ -150,17 +168,81 @@ const PriceEditorTable = forwardRef(function PriceEditorTable(
     setHasChanges(true);
   };
 
+  // Tree selection helpers
+  const isAllItemsSelected = allItems.length > 0 && selectedItemIds.size === allItems.length;
 
+  const toggleSelectAll = () => {
+    if (isAllItemsSelected) {
+      setSelectedItemIds(new Set());
+    } else {
+      setSelectedItemIds(new Set(allItems.map((i) => i.id)));
+    }
+  };
+
+  const toggleCategory = (cat) => {
+    const catItemIds = [];
+    (cat.sub_category || []).forEach((sub) => {
+      (sub.items || []).forEach((item) => catItemIds.push(item.id));
+    });
+    if (catItemIds.length === 0) return;
+
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      const isEverySelected = catItemIds.every((id) => next.has(id));
+      if (isEverySelected) {
+        catItemIds.forEach((id) => next.delete(id));
+      } else {
+        catItemIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const toggleSubCategory = (sub) => {
+    const subItemIds = (sub.items || []).map((i) => i.id);
+    if (subItemIds.length === 0) return;
+
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      const isEverySelected = subItemIds.every((id) => next.has(id));
+      if (isEverySelected) {
+        subItemIds.forEach((id) => next.delete(id));
+      } else {
+        subItemIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const toggleItem = (itemId) => {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
+
+  const toggleCatExpand = (catKey) => {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(catKey)) next.delete(catKey);
+      else next.add(catKey);
+      return next;
+    });
+  };
+
+  const toggleSubCatExpand = (subKey) => {
+    setExpandedSubCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(subKey)) next.delete(subKey);
+      else next.add(subKey);
+      return next;
+    });
+  };
 
   const applyRounding = (price, mode) => {
-    if (mode === "none") return Math.round(price);
-    if (mode === "nearest9") {
-      const rounded = Math.round(price);
-      const remainder = rounded % 10;
-      if (remainder === 9) return rounded;
-      if (remainder === 0) return rounded - 1;
-      return rounded + (9 - remainder);
-    }
+    if (mode === "none" || mode === "exact") return Math.round(price * 100) / 100;
     if (mode === "next9") {
       const rounded = Math.ceil(price);
       const remainder = rounded % 10;
@@ -173,6 +255,12 @@ const PriceEditorTable = forwardRef(function PriceEditorTable(
   const handleApplyBulkUpdate = () => {
     const val = Number(bulkValue);
     if (!val || val <= 0) {
+      notification.error("Please enter a valid update value");
+      return;
+    }
+
+    if (selectedItemIds.size === 0) {
+      notification.error("Please select at least one item from the menu tree");
       return;
     }
 
@@ -180,13 +268,11 @@ const PriceEditorTable = forwardRef(function PriceEditorTable(
       const next = JSON.parse(JSON.stringify(prev));
       let count = 0;
 
-      next.forEach((cat, cIdx) => {
-        if (bulkTarget !== "all" && cat.id !== bulkTarget && String(cIdx) !== bulkTarget) {
-          return;
-        }
-
+      next.forEach((cat) => {
         (cat.sub_category || []).forEach((sub) => {
           (sub.items || []).forEach((item) => {
+            if (!selectedItemIds.has(item.id)) return;
+
             const currentBase = Number(item.base_price) || 0;
             const diff = bulkMode === "percentage" ? (currentBase * val) / 100 : val;
             let newBase = bulkAction === "increase" ? currentBase + diff : currentBase - diff;
@@ -214,7 +300,7 @@ const PriceEditorTable = forwardRef(function PriceEditorTable(
     setHasChanges(true);
     setIsBulkModalOpen(false);
     setBulkValue("");
-    notification.success("Bulk price update applied to sheet!");
+    notification.success(`Bulk price update applied to ${selectedItemIds.size} items!`);
   };
 
   return (
@@ -452,21 +538,197 @@ const PriceEditorTable = forwardRef(function PriceEditorTable(
 
             {/* Sheet Form Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-5">
-              {/* Apply To */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-700">Apply To</label>
-                <select
-                  value={bulkTarget}
-                  onChange={(e) => setBulkTarget(e.target.value)}
-                  className="w-full text-xs bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-800 outline-none focus:border-gray-500 transition-colors"
-                >
-                  <option value="all">All Items ({allItems.length} items)</option>
-                  {localCategories.map((cat, idx) => (
-                    <option key={cat.id || idx} value={cat.id || String(idx)}>
-                      {cat.name} ({(cat.sub_category || []).reduce((acc, s) => acc + (s.items || []).length, 0)} items)
-                    </option>
-                  ))}
-                </select>
+              {/* Folder-like Tree Structure for Item Selection */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-gray-800 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-gray-500" />
+                    <span>Select Items to Update</span>
+                  </label>
+                  <span className="text-[11px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    {selectedItemIds.size} of {allItems.length} selected
+                  </span>
+                </div>
+
+                {/* Tree Box */}
+                <div className="border border-gray-200 rounded-xl bg-gray-50/60 overflow-hidden text-xs">
+                  {/* Master Select All Row */}
+                  <div className="flex items-center justify-between p-2.5 bg-white border-b border-gray-200 font-medium text-gray-800">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={isAllItemsSelected}
+                        onChange={toggleSelectAll}
+                        className="rounded border-gray-300 text-gray-900 focus:ring-gray-900 w-3.5 h-3.5 cursor-pointer accent-gray-900"
+                      />
+                      <span className="font-semibold text-gray-900">Entire Menu (All Categories)</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={toggleSelectAll}
+                      className="text-[10px] text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
+                    >
+                      {isAllItemsSelected ? "Deselect All" : "Select All"}
+                    </button>
+                  </div>
+
+                  {/* Scrollable Tree Container */}
+                  <div className="max-h-64 overflow-y-auto p-2 space-y-1 divide-y divide-gray-100/80">
+                    {localCategories.map((cat, catIdx) => {
+                      const catKey = String(cat.id || catIdx);
+                      const isCatExpanded = expandedCategories.has(catKey);
+
+                      // Calculate item stats for this category
+                      const catItems = [];
+                      (cat.sub_category || []).forEach((sub) => {
+                        (sub.items || []).forEach((item) => catItems.push(item));
+                      });
+                      const catItemIds = catItems.map((i) => i.id);
+                      const selectedInCat = catItemIds.filter((id) => selectedItemIds.has(id)).length;
+                      const isCatFullySelected = catItemIds.length > 0 && selectedInCat === catItemIds.length;
+                      const isCatPartiallySelected = selectedInCat > 0 && selectedInCat < catItemIds.length;
+
+                      return (
+                        <div key={catKey} className="pt-1.5 first:pt-0">
+                          {/* Category Folder Row */}
+                          <div className="flex items-center justify-between p-1.5 rounded-lg hover:bg-white transition-colors group">
+                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                              <button
+                                type="button"
+                                onClick={() => toggleCatExpand(catKey)}
+                                className="p-0.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
+                              >
+                                {isCatExpanded ? (
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                ) : (
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+
+                              <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0 select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={isCatFullySelected}
+                                  ref={(el) => {
+                                    if (el) el.indeterminate = isCatPartiallySelected;
+                                  }}
+                                  onChange={() => toggleCategory(cat)}
+                                  className="rounded border-gray-300 text-gray-900 focus:ring-gray-900 w-3.5 h-3.5 cursor-pointer accent-gray-900"
+                                />
+                                {isCatExpanded ? (
+                                  <FolderOpen className="w-4 h-4 text-amber-500 shrink-0" />
+                                ) : (
+                                  <Folder className="w-4 h-4 text-amber-500 shrink-0" />
+                                )}
+                                <span className="font-semibold text-gray-800 truncate">
+                                  {cat.name}
+                                </span>
+                              </label>
+                            </div>
+
+                            <span className="text-[10px] font-medium text-gray-400 shrink-0 ml-2 bg-gray-100 dark:bg-gray-200/50 px-1.5 py-0.2 rounded">
+                              {selectedInCat}/{catItemIds.length}
+                            </span>
+                          </div>
+
+                          {/* Subcategories (if expanded) */}
+                          {isCatExpanded && (
+                            <div className="pl-5 space-y-1 mt-1 border-l border-gray-200 ml-3">
+                              {(cat.sub_category || []).map((sub, subIdx) => {
+                                const subKey = `${catKey}-${sub.id || subIdx}`;
+                                const isSubExpanded = expandedSubCategories.has(subKey);
+
+                                const subItems = sub.items || [];
+                                const subItemIds = subItems.map((i) => i.id);
+                                const selectedInSub = subItemIds.filter((id) => selectedItemIds.has(id)).length;
+                                const isSubFullySelected = subItemIds.length > 0 && selectedInSub === subItemIds.length;
+                                const isSubPartiallySelected = selectedInSub > 0 && selectedInSub < subItemIds.length;
+
+                                return (
+                                  <div key={subKey} className="space-y-0.5">
+                                    {/* Subcategory Row */}
+                                    <div className="flex items-center justify-between p-1 rounded-lg hover:bg-white transition-colors">
+                                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleSubCatExpand(subKey)}
+                                          className="p-0.5 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
+                                        >
+                                          {isSubExpanded ? (
+                                            <ChevronDown className="w-3 h-3" />
+                                          ) : (
+                                            <ChevronRight className="w-3 h-3" />
+                                          )}
+                                        </button>
+
+                                        <label className="flex items-center gap-1.5 cursor-pointer flex-1 min-w-0 select-none">
+                                          <input
+                                            type="checkbox"
+                                            checked={isSubFullySelected}
+                                            ref={(el) => {
+                                              if (el) el.indeterminate = isSubPartiallySelected;
+                                            }}
+                                            onChange={() => toggleSubCategory(sub)}
+                                            className="rounded border-gray-300 text-gray-900 focus:ring-gray-900 w-3 h-3 cursor-pointer accent-gray-900"
+                                          />
+                                          <span className="text-gray-700 font-medium truncate">
+                                            {sub.name === "nota" || !sub.name ? "Items" : sub.name}
+                                          </span>
+                                        </label>
+                                      </div>
+
+                                      <span className="text-[9px] text-gray-400 shrink-0">
+                                        {selectedInSub}/{subItemIds.length}
+                                      </span>
+                                    </div>
+
+                                    {/* Items under Subcategory (if expanded) */}
+                                    {isSubExpanded && (
+                                      <div className="pl-5 space-y-0.5 border-l border-gray-200 ml-2.5">
+                                        {subItems.map((item) => {
+                                          const isItemSelected = selectedItemIds.has(item.id);
+                                          return (
+                                            <label
+                                              key={item.id}
+                                              className="flex items-center justify-between p-1 rounded-md hover:bg-white cursor-pointer transition-colors text-[11px]"
+                                            >
+                                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={isItemSelected}
+                                                  onChange={() => toggleItem(item.id)}
+                                                  className="rounded border-gray-300 text-gray-900 focus:ring-gray-900 w-3 h-3 cursor-pointer accent-gray-900"
+                                                />
+                                                <span
+                                                  className={`truncate ${
+                                                    isItemSelected
+                                                      ? "text-gray-900 font-medium"
+                                                      : "text-gray-400"
+                                                  }`}
+                                                  title={item.name}
+                                                >
+                                                  {item.name}
+                                                </span>
+                                              </div>
+
+                                              <span className="text-[10px] text-gray-500 font-mono shrink-0 ml-1">
+                                                ₹{item.base_price || 0}
+                                              </span>
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
               {/* Action & Type */}
@@ -553,37 +815,11 @@ const PriceEditorTable = forwardRef(function PriceEditorTable(
                 <select
                   value={roundMode}
                   onChange={(e) => setRoundMode(e.target.value)}
-                  className="w-full text-xs bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-800 outline-none focus:border-gray-500 transition-colors"
+                  className="w-full text-xs bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-800 outline-none focus:border-gray-500 transition-colors cursor-pointer"
                 >
-                  <option value="nearest9">Round to 9 (e.g. ₹300 → ₹299)</option>
                   <option value="next9">Round to Next 9 (e.g. ₹301 → ₹309)</option>
                   <option value="none">No Rounding (Exact mathematical value)</option>
                 </select>
-              </div>
-
-              {/* Live Preview Box */}
-              <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-200 text-xs space-y-1">
-                <span className="font-semibold text-gray-700 block">Preview Summary</span>
-                <p className="text-gray-500 leading-relaxed">
-                  Will {bulkAction} base prices and variants by{" "}
-                  <strong className="text-gray-800">
-                    {bulkValue || "0"}
-                    {bulkMode === "percentage" ? "%" : "₹"}
-                  </strong>{" "}
-                  with{" "}
-                  <strong className="text-gray-800">
-                    {roundMode === "nearest9"
-                      ? "Round to 9"
-                      : roundMode === "next9"
-                      ? "Round to next 9"
-                      : "No Rounding"}
-                  </strong>{" "}
-                  on{" "}
-                  {bulkTarget === "all"
-                    ? `all ${allItems.length} items`
-                    : `${localCategories.find((c) => c.id === bulkTarget || String(c._id) === bulkTarget)?.name || "selected category"}`}
-                  .
-                </p>
               </div>
             </div>
 
@@ -599,10 +835,10 @@ const PriceEditorTable = forwardRef(function PriceEditorTable(
               <button
                 type="button"
                 onClick={handleApplyBulkUpdate}
-                disabled={!bulkValue || Number(bulkValue) <= 0}
+                disabled={!bulkValue || Number(bulkValue) <= 0 || selectedItemIds.size === 0}
                 className="flex-1 py-2 rounded-lg bg-gray-900 hover:bg-black text-white text-xs font-medium disabled:opacity-50 transition-colors cursor-pointer shadow-xs"
               >
-                Apply Updates
+                Apply Updates ({selectedItemIds.size})
               </button>
             </div>
           </div>
