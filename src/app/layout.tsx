@@ -16,6 +16,8 @@ export const metadata: Metadata = {
   description: "AI Followup Agent",
 };
 
+import { NotificationProvider } from "@/context/NotificationContext";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -24,8 +26,12 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en" className={`${poppins.variable} h-full antialiased`}>
-        <body className="min-h-full flex flex-col font-sans">
-          <QueryProvider>{children}</QueryProvider>
+        <body className="min-h-full flex flex-col font-sans bg-zinc-50/50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+          <QueryProvider>
+            <NotificationProvider>
+              <div className="flex-1">{children}</div>
+            </NotificationProvider>
+          </QueryProvider>
         </body>
       </html>
     </ClerkProvider>

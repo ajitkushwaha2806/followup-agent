@@ -1,5 +1,7 @@
 import axios from "axios";
 import { HttpsProxyAgent } from "https-proxy-agent";
+import dbConnect from "@/lib/dbConnect";
+import Credential from "@/models/Credential";
 
 function parseProxyEntry(entry) {
     if (!entry) return null;
@@ -73,13 +75,54 @@ function scheduleZomatoRequest() {
         lastZomatoRequestTime = Date.now();
     });
 
-    zomatoRequestQueue = nextInQueue.catch(() => {});
+    zomatoRequestQueue = nextInQueue.catch(() => { });
     return nextInQueue;
 }
 
+async function resolveCredentialCookie({ credentialId, req, headers }) {
+    // 1. Direct header override (if explicit Zomato Cookie passed)
+    if (headers?.Cookie || headers?.cookie) {
+        return headers.Cookie || headers.cookie;
+    }
+
+    // 2. Custom x-zomato-cookie header from frontend
+    const reqCookie = req?.headers?.get?.("x-zomato-cookie");
+    if (reqCookie) return reqCookie;
+
+    // 3. Resolve credential ID from args, request headers, or query params
+    const resolvedId =
+        credentialId ||
+        req?.headers?.get?.("x-credential-id") ||
+        (req?.nextUrl?.searchParams ? req.nextUrl.searchParams.get("credentialId") : null);
+
+    try {
+        await dbConnect();
+
+        if (resolvedId) {
+            const cred = await Credential.findById(resolvedId).lean();
+            if (cred?.cookie) return cred.cookie;
+        }
+
+        // 4. Fallback: Find latest active credential from MongoDB
+        const activeCred =
+            (await Credential.findOne({
+                type: "MENU_MANAGEMENT",
+                status: "ACTIVE",
+            }).sort({ updatedAt: -1 }).lean()) ||
+            (await Credential.findOne({ status: "ACTIVE" }).sort({ updatedAt: -1 }).lean());
+
+        if (activeCred?.cookie) return activeCred.cookie;
+    } catch (e) {
+        console.warn("[apiClient] Could not fetch credential cookie from DB:", e.message);
+    }
+
+    return "";
+}
+
 export async function apiClient({
+    credentialId,
     req,
-    baseURL = process.env.ZOMATO_API_BASE_URL_V2,
+    baseURL,
     endpoint,
     method = "GET",
     data,
@@ -89,16 +132,26 @@ export async function apiClient({
 }) {
     // Wait for slot in 2-second serialized queue before hitting Zomato API
     await scheduleZomatoRequest();
-    const cookie = req?.headers?.get("x-zomato-cookie") ?? "";
+
+    const targetBaseURL =
+        baseURL ||
+        (endpoint?.startsWith("/php/")
+            ? process.env.ZOMATO_API_BASE_URL || "https://www.zomato.com"
+            : process.env.ZOMATO_API_BASE_URL_V2 || "https://api.zomato.com");
+
+    const resolvedCookie = await resolveCredentialCookie({ credentialId, req, headers });
 
     const finalHeaders = {
         Accept: "application/json, text/plain, */*",
         "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/137 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
         "x-zomato-app-version": "2",
         "x-client-id": "zomato_web_merchant",
-        ...(cookie && { Cookie: cookie }),
+        "X-Requested-With": "XMLHttpRequest",
+        Origin: "https://www.zomato.com",
+        Referer: "https://www.zomato.com/",
         ...headers,
+        ...(resolvedCookie && { Cookie: resolvedCookie }),
     };
 
     if (!(data instanceof FormData) && !headers["content-type"] && !headers["Content-Type"]) {
@@ -112,13 +165,12 @@ export async function apiClient({
 
     try {
         const { data: response } = await axios.request({
-            baseURL,
+            baseURL: targetBaseURL,
             url: endpoint,
             method,
             data,
             params,
             headers: finalHeaders,
-            timeout: 30000,
             ...(httpsAgent && {
                 httpsAgent,
                 httpAgent: httpsAgent,
@@ -128,41 +180,6 @@ export async function apiClient({
 
         return response;
     } catch (err) {
-        // If proxy failed due to network / 407 error, retry once with another proxy or directly
-        if (httpsAgent) {
-            console.warn(
-                `[apiClient] Proxy attempt failed (${err.message}). Retrying request...`
-            );
-            const fallbackAgent = getNextProxyAgent();
-            try {
-                const { data: retryResponse } = await axios.request({
-                    baseURL,
-                    url: endpoint,
-                    method,
-                    data,
-                    params,
-                    headers: finalHeaders,
-                    timeout: 30000,
-                    ...(fallbackAgent && {
-                        httpsAgent: fallbackAgent,
-                        httpAgent: fallbackAgent,
-                        proxy: false,
-                    }),
-                });
-                return retryResponse;
-            } catch (retryErr) {
-                if (axios.isAxiosError(retryErr)) {
-                    throw new Error(
-                        retryErr.response?.data?.message ||
-                        retryErr.response?.data?.error ||
-                        retryErr.response?.statusText ||
-                        retryErr.message
-                    );
-                }
-                throw retryErr;
-            }
-        }
-
         if (axios.isAxiosError(err)) {
             const errorMsg =
                 err.response?.data?.message ||

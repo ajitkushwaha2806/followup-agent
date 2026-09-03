@@ -12,8 +12,15 @@ export async function GET(req) {
     const limit = Math.max(1, Math.min(100, parseInt(searchParams.get("limit") || "10", 10)));
     const search = searchParams.get("search")?.trim() || "";
     const status = searchParams.get("status")?.trim() || "ALL";
+    const typeParam = (searchParams.get("type") || "ONBOARDING").toUpperCase();
 
     const filter = {};
+
+    if (typeParam === "MENU_MANAGEMENT") {
+      filter.type = "MENU_MANAGEMENT";
+    } else {
+      filter.type = { $in: ["ONBOARDING", null, undefined] };
+    }
 
     if (status && status.toUpperCase() !== "ALL") {
       filter.status = status.toUpperCase();
@@ -30,13 +37,17 @@ export async function GET(req) {
 
     const skip = (page - 1) * limit;
 
+    const baseTypeFilter = typeParam === "MENU_MANAGEMENT" 
+      ? { type: "MENU_MANAGEMENT" } 
+      : { type: { $in: ["ONBOARDING", null, undefined] } };
+
     const [credentials, totalFiltered, statsTotal, statsActive, statsExpired] =
       await Promise.all([
         Credential.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
         Credential.countDocuments(filter),
-        Credential.countDocuments({}),
-        Credential.countDocuments({ status: "ACTIVE" }),
-        Credential.countDocuments({ status: "EXPIRED" }),
+        Credential.countDocuments(baseTypeFilter),
+        Credential.countDocuments({ ...baseTypeFilter, status: "ACTIVE" }),
+        Credential.countDocuments({ ...baseTypeFilter, status: "EXPIRED" }),
       ]);
 
     const totalPages = Math.ceil(totalFiltered / limit) || 1;
@@ -78,10 +89,11 @@ export async function POST(req) {
 
     validateRequiredFields(body, ["name", "cookie"]);
 
-    const { name, cookie, status } = body;
+    const { name, cookie, type = "ONBOARDING" } = body;
+    const credentialType = type.toUpperCase() === "MENU_MANAGEMENT" ? "MENU_MANAGEMENT" : "ONBOARDING";
 
-    // Verify session cookie with Zomato GET_USER_DETAILS
-    const verification = await verifyZomatoCookie(cookie);
+    // Verify session cookie with appropriate endpoint for credential type
+    const verification = await verifyZomatoCookie(cookie, credentialType);
 
     const finalStatus = verification.status;
 
@@ -89,6 +101,7 @@ export async function POST(req) {
       name: name.trim(),
       cookie: cookie.trim(),
       status: finalStatus,
+      type: credentialType,
       ...(verification.email && { email: verification.email }),
       ...(verification.userId && { userId: verification.userId }),
       ...(verification.userData && { userDetails: verification.userData }),

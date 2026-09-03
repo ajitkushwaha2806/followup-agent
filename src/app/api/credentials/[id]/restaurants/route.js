@@ -17,11 +17,62 @@ export async function GET(req, { params }) {
       );
     }
 
-    const requestedType = req?.nextUrl?.searchParams?.get("type");
-    const type = requestedType === "live" ? "live" : "active-requests";
+    const isMenuManagement = credential.type === "MENU_MANAGEMENT";
+
+    if (isMenuManagement) {
+      const response = await apiClient({
+        req,
+        baseURL: process.env.ZOMATO_API_BASE_URL_V2 || "https://api.zomato.com",
+        endpoint: "/merchant-gw/web/restaurant/get-all-minimal-lite",
+        method: "GET",
+        headers: {
+          Cookie: credential.cookie,
+        },
+      });
+
+      const raw = response?.data || response;
+      const rawList = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.entities)
+          ? raw.entities
+          : Array.isArray(raw?.restaurants)
+            ? raw.restaurants
+            : Array.isArray(raw?.data)
+              ? raw.data
+              : Array.isArray(response?.entities)
+                ? response.entities
+                : [];
+
+      const restaurants = rawList.map((r) => ({
+        resId: String(r.id || r.res_id || r.resId || ""),
+        name: r.name || r.res_name || "Restaurant",
+        resAddress: r.subzone || r.address || r.res_address || r.city || "",
+        thumbnail: r.thumbnail || null,
+        resListingStatus: r.delivery_status === 1 ? "LIVE" : r.status || "ACTIVE",
+        ...r,
+      }));
+
+      return NextResponse.json({
+        success: true,
+        credential: {
+          _id: credential._id,
+          name: credential.name,
+          status: credential.status,
+          type: credential.type,
+        },
+        data: {
+          restaurants,
+        },
+        raw: response,
+      });
+    }
+
+    const requestedType = req?.nextUrl?.searchParams?.get("type") || "active-requests";
+    const type = requestedType;
 
     const response = await apiClient({
       req,
+      baseURL: process.env.ZOMATO_API_BASE_URL_V2,
       endpoint: ZOMATO_ENDPOINTS.GET_RESTAURANTS_LIST,
       method: "GET",
       headers: {
@@ -43,6 +94,7 @@ export async function GET(req, { params }) {
         _id: credential._id,
         name: credential.name,
         status: credential.status,
+        type: credential.type,
       },
       type,
       data,

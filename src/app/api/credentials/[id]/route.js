@@ -44,8 +44,11 @@ export async function PUT(req, { params }) {
     validateRequiredFields(body, ["name", "cookie"]);
     const { name, cookie, status } = body;
 
-    // Verify session cookie with Zomato GET_USER_DETAILS
-    const verification = await verifyZomatoCookie(cookie);
+    const existing = await Credential.findById(id);
+    const credentialType = body.type || existing?.type || "ONBOARDING";
+
+    // Verify session cookie with appropriate endpoint for credential type
+    const verification = await verifyZomatoCookie(cookie, credentialType);
     const finalStatus = verification.status;
 
     const updatedCredential = await Credential.findByIdAndUpdate(

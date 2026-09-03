@@ -18,6 +18,12 @@ const CredentialSchema = new mongoose.Schema(
       enum: ["ACTIVE", "EXPIRED"],
       default: "EXPIRED",
     },
+    type: {
+      type: String,
+      enum: ["ONBOARDING", "MENU_MANAGEMENT"],
+      default: "ONBOARDING",
+      index: true,
+    },
     email: {
       type: String,
       trim: true,
@@ -35,8 +41,15 @@ const CredentialSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    strict: false,
   }
 );
 
+// Re-register model to avoid stale schema caching in Next.js
+if (mongoose.models?.Credential) {
+  delete mongoose.models.Credential;
+}
+
 export default mongoose.models.Credential ||
   mongoose.model("Credential", CredentialSchema);
+

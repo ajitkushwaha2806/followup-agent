@@ -16,7 +16,7 @@ export async function POST(req, { params }) {
       );
     }
 
-    const verification = await verifyZomatoCookie(credential.cookie);
+    const verification = await verifyZomatoCookie(credential.cookie, credential.type || "ONBOARDING");
 
     const updated = await Credential.findByIdAndUpdate(
       id,
