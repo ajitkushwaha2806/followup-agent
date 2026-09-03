@@ -1,4 +1,5 @@
-import { KeyRound, X, AlertCircle, RefreshCw } from "lucide-react";
+import { KeyRound, X, AlertCircle, RefreshCw, ExternalLink, Puzzle } from "lucide-react";
+import { COOKIE_EDITOR_EXTENSION_URL } from "../constants";
 
 export default function CredentialModal({
   isOpen,
@@ -69,13 +70,27 @@ export default function CredentialModal({
               <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
                 Zomato Merchant Cookie <span className="text-red-500">*</span>
               </label>
-              <button
-                type="button"
-                onClick={onOpenGuide}
-                className="text-xs text-red-600 hover:text-red-700 font-medium hover:underline cursor-pointer inline-flex items-center gap-1"
-              >
-                <span>Where to get this?</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <a
+                  href={COOKIE_EDITOR_EXTENSION_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium hover:underline cursor-pointer inline-flex items-center gap-1"
+                  title="Open Cookie-Editor extension on Chrome Web Store"
+                >
+                  <Puzzle className="w-3.5 h-3.5 text-blue-500" />
+                  <span>Get Extension</span>
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
+                <span className="text-zinc-300 dark:text-zinc-700">•</span>
+                <button
+                  type="button"
+                  onClick={onOpenGuide}
+                  className="text-xs text-red-600 hover:text-red-700 font-medium hover:underline cursor-pointer inline-flex items-center gap-1"
+                >
+                  <span>Guide</span>
+                </button>
+              </div>
             </div>
             <textarea
               rows={4}
@@ -87,10 +102,6 @@ export default function CredentialModal({
               className="w-full px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl font-mono text-xs focus:outline-none focus:ring-2 focus:ring-red-500 text-zinc-900 dark:text-zinc-100 scrollbar-thin"
               required
             />
-            <p className="text-[11px] text-zinc-400 mt-1">
-              Ensure the cookie includes active session identifiers from{" "}
-              <span className="font-mono">zomato.com/merchant</span>. Cookie will be verified live with Zomato upon submission.
-            </p>
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-100 dark:border-zinc-800">

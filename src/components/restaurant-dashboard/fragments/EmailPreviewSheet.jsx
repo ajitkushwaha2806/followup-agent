@@ -958,71 +958,26 @@ export default function EmailPreviewSheet({ isOpen, onClose, restaurant, merchan
           </div>
 
           {/* Bottom Floating Action Bar */}
-          <div className="p-4 sm:p-5 border-t border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md sticky bottom-0 z-30 flex flex-wrap items-center justify-between gap-3 shadow-lg">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleDownloadTxt}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-semibold transition-all cursor-pointer shadow-2xs"
-                title="Download email as .txt file"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Export .txt</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleCopyFullEmail}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-semibold transition-all cursor-pointer shadow-2xs"
-                title="Copy entire email to clipboard"
-              >
-                {copiedType === "all" ? (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Copy</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Mailto Fallback Link */}
-              <a
-                href={mailtoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs font-semibold transition-all cursor-pointer shadow-2xs"
-                title="Open in Apple Mail / Desktop Client"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Mail Client</span>
-              </a>
-
-              {/* Direct Gmail Send Button */}
-              <button
-                type="button"
-                onClick={handleSendGmailClick}
-                disabled={isGmailSending || toEmails.length === 0}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-red-600 hover:from-red-700 hover:to-rose-700 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-md shadow-red-600/25 cursor-pointer"
-              >
-                {isGmailSending ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Sending via Gmail...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-3.5 h-3.5" />
-                    <span>{isGmailConnected ? "Send via Gmail" : "Connect & Send via Gmail"}</span>
-                  </>
-                )}
-              </button>
-            </div>
+          <div className="p-4 sm:p-5 border-t border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md sticky bottom-0 z-30 flex items-center justify-end gap-3 shadow-lg">
+            {/* Direct Gmail Send Button */}
+            <button
+              type="button"
+              onClick={handleSendGmailClick}
+              disabled={isGmailSending || toEmails.length === 0}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-red-600 hover:from-red-700 hover:to-rose-700 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-md shadow-red-600/25 cursor-pointer"
+            >
+              {isGmailSending ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Sending via Gmail...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{isGmailConnected ? "Send via Gmail" : "Connect & Send via Gmail"}</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>

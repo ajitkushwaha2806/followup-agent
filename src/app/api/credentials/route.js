@@ -4,15 +4,60 @@ import Credential from "@/models/Credential";
 import { validateRequiredFields } from "@/lib/helpers";
 import { verifyZomatoCookie } from "@/services/backend/credentialVerification";
 
-export async function GET() {
+export async function GET(req) {
   try {
     await dbConnect();
-    const credentials = await Credential.find({}).sort({ createdAt: -1 });
+    const { searchParams } = new URL(req.url);
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const limit = Math.max(1, Math.min(100, parseInt(searchParams.get("limit") || "10", 10)));
+    const search = searchParams.get("search")?.trim() || "";
+    const status = searchParams.get("status")?.trim() || "ALL";
+
+    const filter = {};
+
+    if (status && status.toUpperCase() !== "ALL") {
+      filter.status = status.toUpperCase();
+    }
+
+    if (search) {
+      const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      filter.$or = [
+        { name: regex },
+        { email: regex },
+        { userId: regex },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [credentials, totalFiltered, statsTotal, statsActive, statsExpired] =
+      await Promise.all([
+        Credential.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+        Credential.countDocuments(filter),
+        Credential.countDocuments({}),
+        Credential.countDocuments({ status: "ACTIVE" }),
+        Credential.countDocuments({ status: "EXPIRED" }),
+      ]);
+
+    const totalPages = Math.ceil(totalFiltered / limit) || 1;
 
     return NextResponse.json({
       success: true,
-      count: credentials.length,
       data: credentials,
+      count: credentials.length,
+      pagination: {
+        total: totalFiltered,
+        page,
+        totalPages,
+        limit,
+        hasPrevPage: page > 1,
+        hasNextPage: page < totalPages,
+      },
+      stats: {
+        total: statsTotal,
+        active: statsActive,
+        expired: statsExpired,
+      },
     });
   } catch (error) {
     console.error("Error fetching credentials:", error);

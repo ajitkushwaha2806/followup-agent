@@ -8,3 +8,4 @@ export { default as EmptyState } from "./EmptyState";
 export { default as CredentialModal } from "./CredentialModal";
 export { default as DeleteConfirmModal } from "./DeleteConfirmModal";
 export { default as CookieGuideModal } from "./CookieGuideModal";
+export { default as Pagination } from "./Pagination";

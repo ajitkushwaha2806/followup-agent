@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { credentialService } from "@/services/frontend/credentialService";
 import { INITIAL_FORM_DATA } from "./constants";
-import { filterCredentials } from "./helpers";
 import {
   HeaderBanner,
   AlertNotifications,
@@ -15,12 +14,17 @@ import {
   DeleteConfirmModal,
   CookieGuideModal,
 } from "./fragments";
+import EmailPreviewSheet from "@/components/restaurant-dashboard/fragments/EmailPreviewSheet";
 
 export default function ZomatoCredentialsManager() {
   const queryClient = useQueryClient();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+
   const [successMessage, setSuccessMessage] = useState(null);
   const [customError, setCustomError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,6 +37,36 @@ export default function ZomatoCredentialsManager() {
   const [copiedId, setCopiedId] = useState(null);
   const [testingId, setTestingId] = useState(null);
 
+  // Email generation state
+  const [selectedEmailRestaurant, setSelectedEmailRestaurant] = useState(null);
+  const [selectedEmailMerchantUser, setSelectedEmailMerchantUser] = useState(null);
+  const [isEmailSheetOpen, setIsEmailSheetOpen] = useState(false);
+
+  const handleGenerateEmail = (restaurant, credential) => {
+    setSelectedEmailRestaurant(restaurant);
+    setSelectedEmailMerchantUser(
+      credential?.userDetails || {
+        name: credential?.name,
+        email: credential?.email,
+      }
+    );
+    setIsEmailSheetOpen(true);
+  };
+
+  // Debounce search query by 350ms to avoid unnecessary API requests
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+      setPage(1); // Reset to page 1 on new search query
+    }, 350);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  const handleStatusFilterChange = (newStatus) => {
+    setStatusFilter(newStatus);
+    setPage(1); // Reset to page 1 on status filter change
+  };
+
   const {
     data: queryResponse,
     isLoading,
@@ -41,11 +75,18 @@ export default function ZomatoCredentialsManager() {
     error: queryError,
     refetch,
   } = useQuery({
-    queryKey: ["credentials"],
-    queryFn: credentialService.getAll,
+    queryKey: ["credentials", page, limit, debouncedSearch, statusFilter],
+    queryFn: () =>
+      credentialService.getAll({
+        page,
+        limit,
+        search: debouncedSearch,
+        status: statusFilter,
+      }),
   });
 
   const credentials = queryResponse?.data || [];
+  const pagination = queryResponse?.pagination;
 
   const createMutation = useMutation({
     mutationFn: (newCred) => credentialService.create(newCred),
@@ -190,12 +231,6 @@ export default function ZomatoCredentialsManager() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const filteredCredentials = filterCredentials(
-    credentials,
-    searchQuery,
-    statusFilter
-  );
-
   const activeError =
     customError ||
     (isError
@@ -219,34 +254,40 @@ export default function ZomatoCredentialsManager() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         statusFilter={statusFilter}
-        onStatusFilterChange={setStatusFilter}
+        onStatusFilterChange={handleStatusFilterChange}
       />
 
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
           <div className="w-12 h-12 rounded-full border-4 border-red-500/20 border-t-red-600 animate-spin" />
           <p className="text-zinc-500 text-sm">
-            Fetching credentials via TanStack Query...
+            Fetching credentials...
           </p>
         </div>
-      ) : filteredCredentials.length === 0 ? (
+      ) : credentials.length === 0 ? (
         <EmptyState
           hasSearchOrFilter={Boolean(searchQuery || statusFilter !== "ALL")}
           onResetFilters={() => {
             setSearchQuery("");
             setStatusFilter("ALL");
+            setPage(1);
           }}
           onOpenAddModal={() => handleOpenModal()}
         />
       ) : (
         <CredentialTable
-          credentials={filteredCredentials}
-          searchQuery={searchQuery}
-          statusFilter={statusFilter}
+          credentials={credentials}
           onEdit={handleOpenModal}
           onDeleteConfirm={setDeleteConfirmItem}
           onTestConnection={handleTestConnection}
+          onGenerateEmail={handleGenerateEmail}
           testingId={testingId}
+          pagination={pagination}
+          onPageChange={(newPage) => setPage(newPage)}
+          onLimitChange={(newLimit) => {
+            setLimit(newLimit);
+            setPage(1);
+          }}
         />
       )}
 
@@ -272,6 +313,14 @@ export default function ZomatoCredentialsManager() {
       <CookieGuideModal
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
+      />
+
+      {/* Direct Email Preview & Sending Sheet */}
+      <EmailPreviewSheet
+        isOpen={isEmailSheetOpen}
+        onClose={() => setIsEmailSheetOpen(false)}
+        restaurant={selectedEmailRestaurant}
+        merchantUser={selectedEmailMerchantUser}
       />
     </div>
   );

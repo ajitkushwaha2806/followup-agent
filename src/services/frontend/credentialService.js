@@ -2,8 +2,8 @@ import axios from "axios";
 import { API_ENDPOINTS } from "../api-endpoints";
 
 export const credentialService = {
-  async getAll() {
-    const { data } = await axios.get(API_ENDPOINTS.CREDENTIALS);
+  async getAll(params = {}) {
+    const { data } = await axios.get(API_ENDPOINTS.CREDENTIALS, { params });
     return data;
   },
 

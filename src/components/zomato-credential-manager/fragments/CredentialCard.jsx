@@ -46,17 +46,6 @@ export default function CredentialCard({ item, isTesting, onTestConnection, onEd
       </div>
 
       <div className="space-y-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-        <Link
-          href={`/restaurant/${item._id}`}
-          className="inline-flex items-center justify-between w-full py-2 px-3.5 rounded-xl bg-zinc-900 hover:bg-black dark:bg-white dark:hover:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-medium transition-all shadow-sm group cursor-pointer"
-        >
-          <div className="flex items-center gap-2">
-            <Store className="w-3.5 h-3.5 text-red-500" />
-            <span>View Outlets & Pipeline</span>
-          </div>
-          <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
-        </Link>
-
         <div className="flex items-center justify-between gap-2">
           <button
             onClick={() => onTestConnection(item._id)}

@@ -57,6 +57,26 @@ function getNextProxyAgent() {
     }
 }
 
+// Global serialized rate-limiter: enforces minimum 2000ms (2s) between Zomato API requests
+let lastZomatoRequestTime = 0;
+let zomatoRequestQueue = Promise.resolve();
+const ZOMATO_MIN_INTERVAL_MS = 2000;
+
+function scheduleZomatoRequest() {
+    const nextInQueue = zomatoRequestQueue.then(async () => {
+        const now = Date.now();
+        const elapsed = now - lastZomatoRequestTime;
+        if (elapsed < ZOMATO_MIN_INTERVAL_MS) {
+            const delay = ZOMATO_MIN_INTERVAL_MS - elapsed;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+        lastZomatoRequestTime = Date.now();
+    });
+
+    zomatoRequestQueue = nextInQueue.catch(() => {});
+    return nextInQueue;
+}
+
 export async function apiClient({
     req,
     baseURL = process.env.ZOMATO_API_BASE_URL_V2,
@@ -67,6 +87,8 @@ export async function apiClient({
     headers = {},
     contentType,
 }) {
+    // Wait for slot in 2-second serialized queue before hitting Zomato API
+    await scheduleZomatoRequest();
     const cookie = req?.headers?.get("x-zomato-cookie") ?? "";
 
     const finalHeaders = {

@@ -1,4 +1,4 @@
-import { HelpCircle, X } from "lucide-react";
+import { HelpCircle, X, ExternalLink } from "lucide-react";
 import { COOKIE_GUIDE_STEPS } from "../constants";
 
 export default function CookieGuideModal({ isOpen, onClose }) {
@@ -20,30 +20,35 @@ export default function CookieGuideModal({ isOpen, onClose }) {
           </button>
         </div>
 
-        <div className="space-y-3 text-xs text-zinc-600 dark:text-zinc-300">
+        <div className="space-y-3.5 text-xs text-zinc-600 dark:text-zinc-300">
           {COOKIE_GUIDE_STEPS.map((stepItem) => (
-            <div key={stepItem.step} className="flex gap-3 items-start">
-              <div className="w-6 h-6 rounded-full bg-red-100 dark:bg-red-950 text-red-600 font-bold flex items-center justify-center flex-shrink-0">
+            <div key={stepItem.step} className="flex gap-3 items-start p-2.5 rounded-xl bg-zinc-50/70 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800">
+              <div className="w-6 h-6 rounded-full bg-red-100 dark:bg-red-950 text-red-600 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
                 {stepItem.step}
               </div>
-              <p>
-                {stepItem.link ? (
-                  <>
-                    Open your browser and navigate to the{" "}
-                    <a
-                      href={stepItem.link}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-red-600 underline font-medium"
-                    >
-                      {stepItem.linkLabel}
-                    </a>{" "}
-                    and log in.
-                  </>
-                ) : (
-                  stepItem.text
-                )}
-              </p>
+              <div className="space-y-1 min-w-0">
+                <div className="font-semibold text-zinc-800 dark:text-zinc-200">
+                  {stepItem.title}
+                </div>
+                <p className="leading-relaxed">
+                  {stepItem.link ? (
+                    <>
+                      {stepItem.text}{" "}
+                      <a
+                        href={stepItem.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-0.5 text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+                      >
+                        <span>{stepItem.linkLabel}</span>
+                        <ExternalLink className="w-3 h-3 inline" />
+                      </a>
+                    </>
+                  ) : (
+                    stepItem.text
+                  )}
+                </p>
+              </div>
             </div>
           ))}
         </div>
