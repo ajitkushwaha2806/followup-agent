@@ -16,7 +16,10 @@ export async function GET(req, { params }) {
       );
     }
 
-    const menu = await Menu.findOne({ resId, platform: "zomato" }).lean();
+    const menu = await Menu.findOne({
+      resId: { $in: [String(resId), Number(resId)] },
+      platform: "zomato",
+    }).lean();
 
     return NextResponse.json({
       success: true,
@@ -44,9 +47,14 @@ export async function PUT(req, { params }) {
     }
 
     const updatedMenu = await Menu.findOneAndUpdate(
-      { resId, platform: "zomato" },
+      {
+        resId: { $in: [String(resId), Number(resId)] },
+        platform: "zomato",
+      },
       {
         $set: {
+          resId: String(resId),
+          platform: "zomato",
           menu: body.menu,
           rawCatalogue: body.rawCatalogue,
           updatedAt: new Date(),

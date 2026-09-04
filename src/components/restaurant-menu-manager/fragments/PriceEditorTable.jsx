@@ -23,6 +23,7 @@ import {
   Square,
   MinusSquare,
   Utensils,
+  AlertTriangle,
 } from "lucide-react";
 
 const PriceEditorTable = forwardRef(function PriceEditorTable(
@@ -303,6 +304,182 @@ const PriceEditorTable = forwardRef(function PriceEditorTable(
     notification.success(`Bulk price update applied to ${selectedItemIds.size} items!`);
   };
 
+  // Count items & variants that have under review price
+  const underReviewItemsCount = useMemo(() => {
+    let count = 0;
+    localCategories.forEach((cat) => {
+      (cat.sub_category || []).forEach((sub) => {
+        (sub.items || []).forEach((item) => {
+          if (
+            item.is_under_review &&
+            item.under_review_price !== undefined &&
+            item.under_review_price !== null
+          ) {
+            count++;
+          }
+          (item.variants || []).forEach((g) => {
+            (g.options || []).forEach((opt) => {
+              if (
+                opt.is_under_review &&
+                opt.under_review_price !== undefined &&
+                opt.under_review_price !== null
+              ) {
+                count++;
+              }
+            });
+          });
+        });
+      });
+    });
+    return count;
+  }, [localCategories]);
+
+  const selectedUnderReviewCount = useMemo(() => {
+    let count = 0;
+    localCategories.forEach((cat) => {
+      (cat.sub_category || []).forEach((sub) => {
+        (sub.items || []).forEach((item) => {
+          if (!selectedItemIds.has(item.id)) return;
+          if (
+            item.is_under_review &&
+            item.under_review_price !== undefined &&
+            item.under_review_price !== null
+          ) {
+            count++;
+          }
+          (item.variants || []).forEach((g) => {
+            (g.options || []).forEach((opt) => {
+              if (
+                opt.is_under_review &&
+                opt.under_review_price !== undefined &&
+                opt.under_review_price !== null
+              ) {
+                count++;
+              }
+            });
+          });
+        });
+      });
+    });
+    return count;
+  }, [localCategories, selectedItemIds]);
+
+  // Count items & variants that exceed max allowed price
+  const exceededMaxPriceCount = useMemo(() => {
+    let count = 0;
+    localCategories.forEach((cat) => {
+      (cat.sub_category || []).forEach((sub) => {
+        (sub.items || []).forEach((item) => {
+          let hasExceeded = false;
+          if (
+            item.max_allowed_price &&
+            item.base_price !== "" &&
+            Number(item.base_price) > Number(item.max_allowed_price)
+          ) {
+            hasExceeded = true;
+          }
+          (item.variants || []).forEach((g) => {
+            (g.options || []).forEach((opt) => {
+              if (
+                opt.max_allowed_price &&
+                opt.price !== "" &&
+                Number(opt.price) > Number(opt.max_allowed_price)
+              ) {
+                hasExceeded = true;
+              }
+            });
+          });
+          if (hasExceeded) count++;
+        });
+      });
+    });
+    return count;
+  }, [localCategories]);
+
+  const handleApplyAllUnderReviewPrices = () => {
+    let count = 0;
+    setLocalCategories((prev) => {
+      const next = JSON.parse(JSON.stringify(prev));
+      next.forEach((cat) => {
+        (cat.sub_category || []).forEach((sub) => {
+          (sub.items || []).forEach((item) => {
+            if (
+              item.is_under_review &&
+              item.under_review_price !== undefined &&
+              item.under_review_price !== null
+            ) {
+              item.base_price = Number(item.under_review_price);
+              count++;
+            }
+            (item.variants || []).forEach((g) => {
+              (g.options || []).forEach((opt) => {
+                if (
+                  opt.is_under_review &&
+                  opt.under_review_price !== undefined &&
+                  opt.under_review_price !== null
+                ) {
+                  opt.price = Number(opt.under_review_price);
+                  count++;
+                }
+              });
+            });
+          });
+        });
+      });
+      return next;
+    });
+
+    if (count > 0) {
+      setHasChanges(true);
+      notification.success(`Set under-review price for ${count} items/variants in the table!`);
+    } else {
+      notification.error("No items with under-review price found.");
+    }
+  };
+
+  const handleApplySelectedUnderReviewPrices = () => {
+    let count = 0;
+    setLocalCategories((prev) => {
+      const next = JSON.parse(JSON.stringify(prev));
+      next.forEach((cat) => {
+        (cat.sub_category || []).forEach((sub) => {
+          (sub.items || []).forEach((item) => {
+            if (!selectedItemIds.has(item.id)) return;
+            if (
+              item.is_under_review &&
+              item.under_review_price !== undefined &&
+              item.under_review_price !== null
+            ) {
+              item.base_price = Number(item.under_review_price);
+              count++;
+            }
+            (item.variants || []).forEach((g) => {
+              (g.options || []).forEach((opt) => {
+                if (
+                  opt.is_under_review &&
+                  opt.under_review_price !== undefined &&
+                  opt.under_review_price !== null
+                ) {
+                  opt.price = Number(opt.under_review_price);
+                  count++;
+                }
+              });
+            });
+          });
+        });
+      });
+      return next;
+    });
+
+    if (count > 0) {
+      setHasChanges(true);
+      setIsBulkModalOpen(false);
+      notification.success(`Set under-review price for ${count} selected items/variants!`);
+    } else {
+      notification.error("No selected items have under-review prices.");
+    }
+  };
+
   return (
     <div className="w-full space-y-4 font-sans text-gray-800">
       {/* Top Action Bar exactly matching screenshot */}
@@ -314,6 +491,12 @@ const PriceEditorTable = forwardRef(function PriceEditorTable(
           {hasChanges && (
             <span className="text-xs text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full font-medium border border-amber-200">
               Unsaved changes
+            </span>
+          )}
+          {exceededMaxPriceCount > 0 && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full font-semibold border border-rose-200">
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+              <span>{exceededMaxPriceCount} item(s) exceed max allowed price</span>
             </span>
           )}
         </div>
@@ -329,6 +512,18 @@ const PriceEditorTable = forwardRef(function PriceEditorTable(
               className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-gray-500 text-gray-800 placeholder:text-gray-400"
             />
           </div>
+
+          {underReviewItemsCount > 0 && (
+            <button
+              type="button"
+              onClick={handleApplyAllUnderReviewPrices}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+              title="Click to copy all under review prices into the price fields"
+            >
+              <span className="w-2 h-2 rounded-full bg-[#c84e16] animate-pulse" />
+              <span>Use Under Review Prices ({underReviewItemsCount})</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -371,39 +566,89 @@ const PriceEditorTable = forwardRef(function PriceEditorTable(
                       ),
                     }));
 
+                  const isBaseExceeded =
+                    Boolean(item.max_allowed_price) &&
+                    item.base_price !== "" &&
+                    Number(item.base_price) > Number(item.max_allowed_price);
+
+                  const hasAnyVariantExceeded = variants.some((g) =>
+                    (g.options || []).some(
+                      (o) =>
+                        Boolean(o.max_allowed_price) &&
+                        o.price !== "" &&
+                        Number(o.price) > Number(o.max_allowed_price)
+                    )
+                  );
+
+                  const isRowExceeded = isBaseExceeded || hasAnyVariantExceeded;
+
                   return (
                     <tr
                       key={item.id || `${_catIdx}-${_subIdx}-${_itemIdx}`}
-                      className="hover:bg-gray-50/60 transition-colors"
+                      className={`transition-colors ${
+                        isRowExceeded
+                          ? "bg-rose-50/20 hover:bg-rose-50/40"
+                          : "hover:bg-gray-50/60"
+                      }`}
                     >
                       {/* Item Name */}
                       <td className="p-3.5 align-top">
-                        <div className="font-medium text-gray-900 text-sm">
-                          {item.name || "Unnamed Item"}
+                        <div className="font-medium text-gray-900 text-sm flex items-center gap-2">
+                          <span>{item.name || "Unnamed Item"}</span>
                         </div>
                         <div className="text-[11px] text-gray-400 font-normal mt-0.5">
                           {item._catName} &gt; {item._subName}
                         </div>
+                        {isRowExceeded && (
+                          <div className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-[10px] font-semibold text-rose-700">
+                            <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
+                            <span>Price exceeds max limit</span>
+                          </div>
+                        )}
                       </td>
 
                       {/* Base Price (₹) */}
                       <td className="p-3.5 align-top">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            value={item.base_price ?? ""}
-                            onChange={(e) =>
-                              handleBasePriceChange(_catIdx, _subIdx, _itemIdx, e.target.value)
-                            }
-                            placeholder="0"
-                            className="w-24 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-900 outline-none focus:border-gray-500 transition-colors"
-                          />
-                          {item.is_under_review && item.under_review_price !== undefined && item.under_review_price !== null && (
-                            <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-50/60 border border-amber-200/70 rounded-md text-xs whitespace-nowrap">
-                              <span className="text-gray-900 font-semibold">₹{item.under_review_price}</span>
-                              <span className="bg-[#c84e16] text-white text-[10px] font-semibold px-1.5 py-0.5 rounded leading-normal">
-                                Under review
-                              </span>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={item.base_price ?? ""}
+                              onChange={(e) =>
+                                handleBasePriceChange(_catIdx, _subIdx, _itemIdx, e.target.value)
+                              }
+                              placeholder="0"
+                              className={`w-24 px-3 py-1.5 bg-white border rounded-lg text-sm font-medium outline-none transition-colors ${
+                                isBaseExceeded
+                                  ? "border-rose-400 bg-rose-50/30 text-rose-900 focus:border-rose-600 focus:ring-1 focus:ring-rose-500 font-bold"
+                                  : "border-gray-300 text-gray-900 focus:border-gray-500"
+                              }`}
+                            />
+                            {item.is_under_review && item.under_review_price !== undefined && item.under_review_price !== null && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleBasePriceChange(_catIdx, _subIdx, _itemIdx, item.under_review_price)
+                                }
+                                title={`Click to set field to ₹${item.under_review_price}`}
+                                className="inline-flex items-center gap-1.5 px-2 py-1 bg-amber-50 hover:bg-amber-100 active:scale-95 border border-amber-200/80 hover:border-amber-300 rounded-md text-xs whitespace-nowrap transition-all cursor-pointer shadow-2xs group"
+                              >
+                                <span className="text-gray-900 font-semibold group-hover:text-amber-950">
+                                  ₹{item.under_review_price}
+                                </span>
+                                <span className="bg-[#c84e16] text-white text-[10px] font-semibold px-1.5 py-0.5 rounded leading-normal">
+                                  Under review
+                                </span>
+                                <span className="text-[10px] text-amber-700 bg-amber-200/70 font-semibold px-1 py-0.5 rounded group-hover:bg-amber-300 transition-colors">
+                                  Set
+                                </span>
+                              </button>
+                            )}
+                          </div>
+                          {isBaseExceeded && (
+                            <div className="flex items-center gap-1 text-[11px] text-rose-600 font-medium leading-tight">
+                              <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
+                              <span>Max allowed: ₹{item.max_allowed_price}</span>
                             </div>
                           )}
                         </div>
@@ -439,53 +684,97 @@ const PriceEditorTable = forwardRef(function PriceEditorTable(
 
                                 {/* Option pills */}
                                 <div className="flex flex-wrap gap-2.5">
-                                  {(group.options || []).map((opt, oIdx) => (
-                                    <div
-                                      key={opt.variant_id || opt.propertyValueId || opt.option_id || oIdx}
-                                      className="flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden text-xs shadow-2xs"
-                                    >
-                                      <input
-                                        type="text"
-                                        value={opt.option_name || ""}
-                                        onChange={(e) =>
-                                          handleVariantOptionNameChange(
-                                            _catIdx,
-                                            _subIdx,
-                                            _itemIdx,
-                                            gIdx,
-                                            oIdx,
-                                            e.target.value
-                                          )
-                                        }
-                                        className="w-20 px-2 py-1.5 text-gray-700 bg-gray-50/50 border-r border-gray-200 outline-none"
-                                      />
-                                      <input
-                                        type="number"
-                                        value={opt.price ?? ""}
-                                        onChange={(e) =>
-                                          handleVariantPriceChange(
-                                            _catIdx,
-                                            _subIdx,
-                                            _itemIdx,
-                                            gIdx,
-                                            oIdx,
-                                            e.target.value
-                                          )
-                                        }
-                                        placeholder="0"
-                                        className="w-16 px-2 py-1.5 text-gray-900 font-medium outline-none text-center"
-                                      />
+                                  {(group.options || []).map((opt, oIdx) => {
+                                    const isOptExceeded =
+                                      Boolean(opt.max_allowed_price) &&
+                                      opt.price !== "" &&
+                                      Number(opt.price) > Number(opt.max_allowed_price);
 
-                                      {opt.is_under_review && opt.under_review_price !== undefined && opt.under_review_price !== null && (
-                                        <div className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-50 border-l border-gray-200 text-xs whitespace-nowrap">
-                                          <span className="text-gray-900 font-semibold">₹{opt.under_review_price}</span>
-                                          <span className="bg-[#c84e16] text-white text-[9px] font-semibold px-1.5 py-0.5 rounded leading-normal">
-                                            Under review
-                                          </span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
+                                    return (
+                                      <div
+                                        key={opt.variant_id || opt.propertyValueId || opt.option_id || oIdx}
+                                        className={`flex items-center bg-white border rounded-lg overflow-hidden text-xs shadow-2xs transition-colors ${
+                                          isOptExceeded
+                                            ? "border-rose-400 bg-rose-50/20 ring-1 ring-rose-300/60"
+                                            : "border-gray-200"
+                                        }`}
+                                      >
+                                        <input
+                                          type="text"
+                                          value={opt.option_name || ""}
+                                          onChange={(e) =>
+                                            handleVariantOptionNameChange(
+                                              _catIdx,
+                                              _subIdx,
+                                              _itemIdx,
+                                              gIdx,
+                                              oIdx,
+                                              e.target.value
+                                            )
+                                          }
+                                          className="w-20 px-2 py-1.5 text-gray-700 bg-gray-50/50 border-r border-gray-200 outline-none"
+                                        />
+                                        <input
+                                          type="number"
+                                          value={opt.price ?? ""}
+                                          onChange={(e) =>
+                                            handleVariantPriceChange(
+                                              _catIdx,
+                                              _subIdx,
+                                              _itemIdx,
+                                              gIdx,
+                                              oIdx,
+                                              e.target.value
+                                            )
+                                          }
+                                          placeholder="0"
+                                          className={`w-16 px-2 py-1.5 font-medium outline-none text-center ${
+                                            isOptExceeded
+                                              ? "text-rose-900 bg-rose-50/40 font-bold"
+                                              : "text-gray-900"
+                                          }`}
+                                        />
+
+                                        {isOptExceeded && (
+                                          <div
+                                            title={`Price ₹${opt.price} exceeds Zomato max allowed price of ₹${opt.max_allowed_price}`}
+                                            className="flex items-center gap-0.5 px-1.5 py-1.5 bg-rose-50 border-l border-rose-200 text-rose-700 text-[10px] font-bold whitespace-nowrap"
+                                          >
+                                            <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                                            <span>Max ₹{opt.max_allowed_price}</span>
+                                          </div>
+                                        )}
+
+                                        {opt.is_under_review && opt.under_review_price !== undefined && opt.under_review_price !== null && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleVariantPriceChange(
+                                                _catIdx,
+                                                _subIdx,
+                                                _itemIdx,
+                                                gIdx,
+                                                oIdx,
+                                                opt.under_review_price
+                                              )
+                                            }
+                                            title={`Click to set field to ₹${opt.under_review_price}`}
+                                            className="flex items-center gap-1 px-1.5 py-1.5 bg-amber-50 hover:bg-amber-100/90 active:scale-95 border-l border-gray-200 text-xs whitespace-nowrap transition-all cursor-pointer group"
+                                          >
+                                            <span className="text-gray-900 font-semibold group-hover:text-amber-950">
+                                              ₹{opt.under_review_price}
+                                            </span>
+                                            <span className="bg-[#c84e16] text-white text-[9px] font-semibold px-1 py-0.5 rounded leading-normal">
+                                              Under review
+                                            </span>
+                                            <span className="text-[9px] text-amber-700 bg-amber-200/70 font-semibold px-1 py-0.2 rounded group-hover:bg-amber-300 transition-colors">
+                                              Set
+                                            </span>
+                                          </button>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             ))}
@@ -821,6 +1110,30 @@ const PriceEditorTable = forwardRef(function PriceEditorTable(
                   <option value="none">No Rounding (Exact mathematical value)</option>
                 </select>
               </div>
+
+              {/* Quick Action for Under Review Prices */}
+              {selectedUnderReviewCount > 0 && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-amber-900">
+                      Under Review Prices Detected
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#c84e16] text-white">
+                      {selectedUnderReviewCount} items
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-tight">
+                    {selectedUnderReviewCount} of your selected items/variants have an active price under review in Zomato.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleApplySelectedUnderReviewPrices}
+                    className="w-full py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-medium transition-colors cursor-pointer shadow-2xs"
+                  >
+                    Set Under Review Prices to Selected ({selectedUnderReviewCount})
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Sheet Footer */}

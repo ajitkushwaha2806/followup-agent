@@ -127,6 +127,11 @@ export default function MenuViewModal({ isOpen, onClose, restaurant, menuData })
                             <div className="text-[9px] text-zinc-400 uppercase tracking-tight">
                               Base Price
                             </div>
+                            {item.max_allowed_price && (
+                              <div className="text-[9px] text-zinc-500 font-medium mt-0.5">
+                                Max: ₹{item.max_allowed_price}
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -150,6 +155,11 @@ export default function MenuViewModal({ isOpen, onClose, restaurant, menuData })
                                       <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                                         ₹{opt.price}
                                       </span>
+                                      {opt.max_allowed_price && (
+                                        <span className="text-[9px] text-zinc-400 font-mono">
+                                          (Max: ₹{opt.max_allowed_price})
+                                        </span>
+                                      )}
                                       {opt.is_default && (
                                         <span className="text-[8px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 px-1 rounded">
                                           default

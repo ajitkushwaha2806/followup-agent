@@ -6,13 +6,23 @@ import { apiClient } from "@/lib/api/client";
 
 export const dynamic = "force-dynamic";
 
-const getDeliveryPrice = (variantPrices = []) => {
-    const match =
+const getDeliveryPriceObj = (variantPrices = []) => {
+    return (
         variantPrices.find(
             (p) => p?.service?.toLowerCase() === "delivery"
-        ) || variantPrices[0];
+        ) || variantPrices[0] || null
+    );
+};
 
+const getDeliveryPrice = (variantPrices = []) => {
+    const match = getDeliveryPriceObj(variantPrices);
     return match?.price ?? match?.basePrice ?? 0;
+};
+
+const getMaxAllowedPrice = (variantPrices = []) => {
+    const match = getDeliveryPriceObj(variantPrices);
+    const maxVal = match?.maxAllowedPrice ?? match?.max_allowed_price ?? null;
+    return typeof maxVal === "number" && maxVal > 0 ? maxVal : null;
 };
 
 const buildCatalogueLookup = (catalogueWrappers = []) => {
@@ -38,6 +48,18 @@ const getBasePrice = (variantWrappers = []) => {
     return Math.min(...prices);
 };
 
+const getBaseMaxAllowedPrice = (variantWrappers = []) => {
+    const maxPrices = variantWrappers
+        .map((vw) => getMaxAllowedPrice(vw?.variantPrices))
+        .filter((p) => typeof p === "number" && p > 0);
+
+    if (maxPrices.length === 0) {
+        return null;
+    }
+
+    return Math.min(...maxPrices);
+};
+
 const parseItemVariants = (catalogueWrapper, variantPriceModeration = {}) => {
     const propertyWrappers = catalogueWrapper?.cataloguePropertyWrappers || [];
     const variantWrappers = catalogueWrapper?.variantWrappers || [];
@@ -48,6 +70,7 @@ const parseItemVariants = (catalogueWrapper, variantPriceModeration = {}) => {
     variantWrappers.forEach((variantWrapper) => {
         const variantId = variantWrapper?.variant?.variantId || "";
         const price = getDeliveryPrice(variantWrapper?.variantPrices);
+        const max_allowed_price = getMaxAllowedPrice(variantWrapper?.variantPrices);
 
         let under_review_price = null;
         let is_under_review = false;
@@ -69,6 +92,7 @@ const parseItemVariants = (catalogueWrapper, variantPriceModeration = {}) => {
                 propertyValueToVariant.set(vpv.propertyValueId, {
                     variantId,
                     price,
+                    max_allowed_price,
                     under_review_price,
                     is_under_review,
                     under_review_status,
@@ -100,6 +124,7 @@ const parseItemVariants = (catalogueWrapper, variantPriceModeration = {}) => {
                             option_id: value?.propertyValueId || "",
                             variant_id: matched?.variantId || "",
                             price: matched?.price || 0,
+                            max_allowed_price: matched?.max_allowed_price ?? null,
                             under_review_price: matched?.under_review_price ?? null,
                             is_under_review: Boolean(matched?.is_under_review),
                             under_review_status: matched?.under_review_status ?? null,
@@ -118,6 +143,7 @@ const parseItemVariants = (catalogueWrapper, variantPriceModeration = {}) => {
 const buildItem = (catalogueWrapper, variantPriceModeration = {}) => {
     const catalogue = catalogueWrapper?.catalogue || {};
     let base_price = getBasePrice(catalogueWrapper?.variantWrappers);
+    let max_allowed_price = getBaseMaxAllowedPrice(catalogueWrapper?.variantWrappers);
     const parsedVariants = parseItemVariants(catalogueWrapper, variantPriceModeration);
 
     let under_review_price = null;
@@ -139,15 +165,20 @@ const buildItem = (catalogueWrapper, variantPriceModeration = {}) => {
 
     if (parsedVariants && parsedVariants.length > 0) {
         let lowestPrice = Infinity;
+        let matchedMaxAllowed = null;
         parsedVariants.forEach((v) => {
             v.options?.forEach((opt) => {
                 if (opt.price > 0 && opt.price < lowestPrice) {
                     lowestPrice = opt.price;
+                    matchedMaxAllowed = opt.max_allowed_price ?? null;
                 }
             });
         });
         if (lowestPrice !== Infinity) {
             base_price = lowestPrice;
+            if (matchedMaxAllowed !== null) {
+                max_allowed_price = matchedMaxAllowed;
+            }
         }
 
         parsedVariants.sort((a, b) => {
@@ -161,6 +192,7 @@ const buildItem = (catalogueWrapper, variantPriceModeration = {}) => {
         id: catalogue?.catalogueId || "",
         name: catalogue?.name || "",
         base_price,
+        max_allowed_price,
         under_review_price,
         is_under_review,
         under_review_status,
@@ -169,11 +201,17 @@ const buildItem = (catalogueWrapper, variantPriceModeration = {}) => {
 };
 
 export const parseZomatoCatalogueMenu = (data) => {
-    const categoryWrappers = data?.categoryWrappers || [];
-    const catalogueWrappers = data?.catalogueWrappers || [];
+    const raw = data?.data || data || {};
+    const menuResponse = raw?.menuResponse || raw;
+    const categoryWrappers = menuResponse?.categoryWrappers || raw?.categoryWrappers || [];
+    const catalogueWrappers = menuResponse?.catalogueWrappers || raw?.catalogueWrappers || [];
     const catalogueLookup = buildCatalogueLookup(catalogueWrappers);
 
-    const moderationData = data?.moderationData || data?.menuResponse?.moderationData || {};
+    const moderationData =
+        raw?.moderationData ||
+        menuResponse?.moderationData ||
+        data?.moderationData ||
+        {};
     const variantPriceModeration = moderationData?.variantPriceModeration || {};
 
     return categoryWrappers.map((categoryWrapper) => {
@@ -268,20 +306,18 @@ export async function GET(req, { params }) {
             );
         }
 
-        const menu =
-            result?.data?.data?.menuResponse ??
-            result?.data?.menuResponse ??
-            null;
-
-        const parsedMenu = parseZomatoCatalogueMenu(menu);
+        const rawData = result?.data?.data ?? result?.data ?? {};
+        const parsedMenu = parseZomatoCatalogueMenu(rawData);
 
         const savedMenu = await Menu.findOneAndUpdate(
-            { resId, platform: "zomato" },
+            { resId: String(resId), platform: "zomato" },
             {
                 $set: {
-                    resId,
+                    resId: String(resId),
                     platform: "zomato",
                     menu: parsedMenu,
+                    rawCatalogue: rawData,
+                    updatedAt: new Date(),
                 },
             },
             { returnDocument: "after", upsert: true }

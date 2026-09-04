@@ -387,11 +387,20 @@ export default function CredentialRestaurantsPage({ params }) {
 
     try {
       setImportingResId(targetRes.resId);
-      await menuService.importZomatoMenu(targetRes.resId, credentialId);
+      const resData = await menuService.importZomatoMenu(targetRes.resId, credentialId);
       setImportSuccessResId(targetRes.resId);
       setTimeout(() => setImportSuccessResId(null), 3000);
-      queryClient.invalidateQueries({ queryKey: ["restaurant-menu", targetRes.resId] });
-      notification.success("Menu synced from Zomato successfully!");
+
+      // Directly update React Query cache for instant UI refresh
+      if (resData?.data) {
+        queryClient.setQueryData(["restaurant-menu", selectedResId], resData);
+        queryClient.setQueryData(["restaurant-menu", targetRes.resId], resData);
+        queryClient.setQueryData(["restaurant-menu", String(targetRes.resId)], resData);
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["restaurant-menu"] });
+      await refetchMenu();
+      notification.success(resData?.message || "Menu synced from Zomato successfully!");
     } catch (err) {
       notification.error(err?.response?.data?.message || err.message || "Failed to sync menu");
     } finally {
@@ -601,6 +610,7 @@ export default function CredentialRestaurantsPage({ params }) {
           </div>
         ) : (
           <PriceEditorTable
+            key={`${selectedResId}-${savedMenu?.updatedAt || ""}`}
             ref={editorRef}
             categories={menuCategories}
             restaurantName={activeRestaurant?.name}
