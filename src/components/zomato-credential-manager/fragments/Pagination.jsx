@@ -85,7 +85,7 @@ export default function Pagination({
       </div>
 
       {/* Right side: Page Navigation */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 flex-wrap justify-center">
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage <= 1}

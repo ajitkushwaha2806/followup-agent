@@ -126,27 +126,29 @@ export default function MenuCredentialTable({
   return (
     <div className="space-y-4">
       <div className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/40 text-[11px] uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">
-              <th className="py-3.5 px-6">Account</th>
-              <th className="py-3.5 px-6">Session</th>
-              <th className="py-3.5 px-6 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/70 text-sm">
-            {credentials.map((item) => (
-              <MenuCredentialTableRow
-                key={item._id}
-                item={item}
-                onEdit={onEdit}
-                onDeleteConfirm={onDeleteConfirm}
-                onTestConnection={onTestConnection}
-                isTesting={testingId === item._id}
-              />
-            ))}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto scrollbar-thin">
+          <table className="w-full min-w-[600px] text-left border-collapse">
+            <thead>
+              <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/40 text-[11px] uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">
+                <th className="py-3.5 px-6">Account</th>
+                <th className="py-3.5 px-6">Session</th>
+                <th className="py-3.5 px-6 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/70 text-sm">
+              {credentials.map((item) => (
+                <MenuCredentialTableRow
+                  key={item._id}
+                  item={item}
+                  onEdit={onEdit}
+                  onDeleteConfirm={onDeleteConfirm}
+                  onTestConnection={onTestConnection}
+                  isTesting={testingId === item._id}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {pagination && (

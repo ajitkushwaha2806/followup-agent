@@ -63,7 +63,7 @@ function CredentialTableRow({
           </div>
           <div className="min-w-0 space-y-0.5">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 truncate max-w-[140px] sm:max-w-[170px]" title={item.name}>
+              <span className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 break-words" title={item.name}>
                 {item.name}
               </span>
               {hasMultipleRestaurants && (
@@ -73,10 +73,16 @@ function CredentialTableRow({
               )}
             </div>
 
-            <div className="text-[11px] text-zinc-400 flex items-center gap-1">
-              <Clock className="w-2.5 h-2.5 shrink-0" />
-              <span>{formatDate(item.createdAt)}</span>
-              {item.email && <span className="text-zinc-500 truncate max-w-[120px]">· {item.email}</span>}
+            <div className="text-[11px] text-zinc-400 flex flex-wrap items-center gap-1">
+              <div className="flex items-center gap-1 shrink-0">
+                <Clock className="w-2.5 h-2.5 shrink-0" />
+                <span>{formatDate(item.createdAt)}</span>
+              </div>
+              {item.email && (
+                <span className="text-zinc-500 truncate max-w-[150px] sm:max-w-[200px]" title={item.email}>
+                  · {item.email}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -115,7 +121,7 @@ function CredentialTableRow({
             <span>Failed</span>
           </span>
         ) : rawRestaurants.length > 0 ? (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {rawRestaurants.map((res, idx) => {
               const steps = res.steps || [];
               const approvedSteps = steps.filter((s) => s.status === "APPROVED");
@@ -128,15 +134,15 @@ function CredentialTableRow({
               return (
                 <div
                   key={res.resId || idx}
-                  className={`p-2 rounded-xl border space-y-1 ${
+                  className={`p-2.5 rounded-xl border space-y-1.5 transition-all ${
                     needsAttention
                       ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-200/80 dark:border-rose-900/40"
                       : "bg-zinc-50/80 dark:bg-zinc-800/40 border-zinc-200/60 dark:border-zinc-700/50"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 truncate max-w-[130px] sm:max-w-[170px]" title={res.name}>
+                  <div className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                      <span className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 truncate" title={res.name}>
                         {res.name}
                       </span>
                       {res.resId && (
@@ -146,7 +152,7 @@ function CredentialTableRow({
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                       {needsAttention && (
                         <button
                           type="button"
@@ -175,23 +181,34 @@ function CredentialTableRow({
                   </div>
 
                   {currentPendingStep ? (
-                    <div className="flex items-center justify-between gap-1.5 text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-900/40 rounded-md px-2 py-0.5">
-                      <div className="flex items-center gap-1 min-w-0 truncate">
-                        <span className="font-semibold text-[10px] shrink-0">Pending:</span>
-                        <span className="truncate">
-                          {currentPendingStep.title}
-                          {currentPendingStep.message?.[0] ? ` · ${currentPendingStep.message[0]}` : ""}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-900/40 rounded-lg px-2.5 py-1">
+                      <div className="flex items-start sm:items-center gap-1.5 min-w-0 flex-1">
+                        <span className="font-semibold text-[10px] uppercase tracking-wider bg-amber-200/80 dark:bg-amber-900/70 px-1 py-0.2 rounded text-amber-900 dark:text-amber-200 shrink-0 mt-0.5 sm:mt-0">
+                          Pending
+                        </span>
+                        <span
+                          className="text-xs break-words line-clamp-2 leading-relaxed"
+                          title={`${currentPendingStep.title}${
+                            currentPendingStep.message?.[0] ? ` · ${currentPendingStep.message[0]}` : ""
+                          }`}
+                        >
+                          <span className="font-medium">{currentPendingStep.title}</span>
+                          {currentPendingStep.message?.[0] && (
+                            <span className="text-amber-900/85 dark:text-amber-200/85 font-normal">
+                              {" · "}{currentPendingStep.message[0]}
+                            </span>
+                          )}
                         </span>
                       </div>
                       {lastUpdated && (
-                        <div className="text-[9px] text-amber-700/80 dark:text-amber-400/80 shrink-0 flex items-center gap-0.5 pl-1.5 font-medium">
+                        <div className="text-[9px] text-amber-700/80 dark:text-amber-400/80 shrink-0 flex items-center gap-0.5 font-medium self-end sm:self-center pl-1">
                           <Clock className="w-2.5 h-2.5" />
                           <span>{lastUpdated}</span>
                         </div>
                       )}
                     </div>
                   ) : steps.length > 0 ? (
-                    <div className="flex items-center justify-between text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    <div className="flex items-center justify-between text-[10px] text-emerald-600 dark:text-emerald-400 font-medium px-1">
                       <span>✓ Approved ({approvedSteps.length}/{steps.length})</span>
                       {lastUpdated && (
                         <span className="text-[9px] text-zinc-400 dark:text-zinc-500 flex items-center gap-0.5 font-normal">
@@ -217,14 +234,14 @@ function CredentialTableRow({
         ) : isLoadingRestaurants ? (
           <span className="text-xs text-zinc-400">...</span>
         ) : rawRestaurants.length > 0 ? (
-          <div className="space-y-1.5 flex flex-col items-center">
+          <div className="space-y-2 flex flex-col items-center">
             {rawRestaurants.map((res, idx) => {
               const needsAttention = checkIfNeedsAttention(res);
 
               return (
                 <div
                   key={res.resId || idx}
-                  className="h-[54px] flex items-center justify-center"
+                  className="min-h-[56px] flex items-center justify-center"
                 >
                   <button
                     type="button"
@@ -311,35 +328,37 @@ export default function CredentialTable({
   return (
     <div className="space-y-4">
       <div className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/40 text-[10px] uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">
-              <th className="py-3 px-4 w-[26%]">Account</th>
-              <th className="py-3 px-3 w-[12%]">Session</th>
-              <th className="py-3 px-3 w-[46%]">Outlets & Pending Steps</th>
-              <th className="py-3 px-3 w-[8%] text-center">
-                <span className="inline-flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-red-500" />
-                  <span>AI</span>
-                </span>
-              </th>
-              <th className="py-3 px-3 w-[8%] text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/70 text-sm">
-            {credentials.map((item) => (
-              <CredentialTableRow
-                key={item._id}
-                item={item}
-                onEdit={onEdit}
-                onDeleteConfirm={onDeleteConfirm}
-                onTestConnection={onTestConnection}
-                onGenerateEmail={onGenerateEmail}
-                isTesting={testingId === item._id}
-              />
-            ))}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto scrollbar-thin">
+          <table className="w-full min-w-[860px] text-left border-collapse">
+            <thead>
+              <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/40 text-[10px] uppercase tracking-wider font-semibold text-zinc-500 dark:text-zinc-400">
+                <th className="py-3 px-4 w-[24%] min-w-[190px]">Account</th>
+                <th className="py-3 px-3 w-[12%] min-w-[90px]">Session</th>
+                <th className="py-3 px-3 w-[48%] min-w-[360px]">Outlets & Pending Steps</th>
+                <th className="py-3 px-3 w-[8%] min-w-[65px] text-center">
+                  <span className="inline-flex items-center gap-1 justify-center">
+                    <Sparkles className="w-3 h-3 text-red-500" />
+                    <span>AI</span>
+                  </span>
+                </th>
+                <th className="py-3 px-3 w-[8%] min-w-[85px] text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/70 text-sm">
+              {credentials.map((item) => (
+                <CredentialTableRow
+                  key={item._id}
+                  item={item}
+                  onEdit={onEdit}
+                  onDeleteConfirm={onDeleteConfirm}
+                  onTestConnection={onTestConnection}
+                  onGenerateEmail={onGenerateEmail}
+                  isTesting={testingId === item._id}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {pagination && (
