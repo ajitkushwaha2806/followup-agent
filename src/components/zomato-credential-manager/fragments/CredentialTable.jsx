@@ -3,11 +3,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { credentialService } from "@/services/frontend/credentialService";
 import { Clock, Edit3, Trash2, Loader2, AlertCircle, RefreshCw, Sparkles, AlertTriangle } from "lucide-react";
-import { formatDate, checkIfNeedsAttention, getRestaurantLastUpdated } from "../helpers";
+import { formatDate, checkIfNeedsAttention, getRestaurantLastUpdated, filterRestaurants, getRestaurantListingStatus } from "../helpers";
 import Pagination from "./Pagination";
 
 function CredentialTableRow({
   item,
+  searchQuery = "",
+  statusFilter = "ALL",
   onEdit,
   onDeleteConfirm,
   onTestConnection,
@@ -28,26 +30,64 @@ function CredentialTableRow({
   });
 
   const rawRestaurants = restaurantResponse?.data?.restaurants || [];
-  const hasMultipleRestaurants = rawRestaurants.length > 1;
   const isSessionActive = item.status === "ACTIVE";
+  const hasNoPendingRequests = isSessionActive && !isLoadingRestaurants && !isRestaurantError && rawRestaurants.length === 0;
+
+  // Filter restaurants using statusFilter and searchQuery
+  const displayedRestaurants = filterRestaurants(rawRestaurants, searchQuery, statusFilter);
+  const isFiltering = Boolean(searchQuery.trim() || (statusFilter && statusFilter !== "ALL"));
+  const hasMultipleRestaurants = displayedRestaurants.length > 1 || (!isFiltering && rawRestaurants.length > 1);
+
+  // Check if account name or email matches search query directly
+  const query = searchQuery.trim().toLowerCase();
+  const accountMatches = Boolean(
+    query &&
+      (item.name?.toLowerCase().includes(query) ||
+        item.email?.toLowerCase().includes(query) ||
+        (hasNoPendingRequests && ("approved".includes(query) || "complete".includes(query) || "live".includes(query))))
+  );
+
+  // Handle filtering visibility:
+  if (isFiltering) {
+    // 1) Expired session:
+    if (!isSessionActive) {
+      if (statusFilter !== "ALL") return null;
+      if (query && !accountMatches) return null;
+    }
+
+    // 2) Active session with NO pending requests (Approved / Completed):
+    if (hasNoPendingRequests) {
+      const isApprovedFilter =
+        statusFilter === "ALL" ||
+        statusFilter === "APPROVED";
+
+      if (!isApprovedFilter && !accountMatches) return null;
+      if (query && !accountMatches) return null;
+    }
+
+    // 3) Active session with restaurants loaded:
+    if (isSessionActive && !isLoadingRestaurants && rawRestaurants.length > 0) {
+      if (displayedRestaurants.length === 0 && !accountMatches) return null;
+    }
+  }
 
   const getStatusBadgeClass = (status) => {
-    const s = String(status || "").toUpperCase();
-    if (s === "READY TO GO LIVE" || s === "LIVE" || s === "APPROVED") {
+    const s = String(status || "").toUpperCase().replace(/_/g, " ");
+    if (s.includes("READY") || s.includes("LIVE") || s.includes("APPROVED")) {
       return "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800";
     }
-    if (s === "REJECTED") {
+    if (s.includes("REJECT")) {
       return "bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800";
     }
     return "bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800";
   };
 
   const getStatusDotClass = (status) => {
-    const s = String(status || "").toUpperCase();
-    if (s === "READY TO GO LIVE" || s === "LIVE" || s === "APPROVED") {
+    const s = String(status || "").toUpperCase().replace(/_/g, " ");
+    if (s.includes("READY") || s.includes("LIVE") || s.includes("APPROVED")) {
       return "bg-emerald-500 animate-pulse";
     }
-    if (s === "REJECTED") {
+    if (s.includes("REJECT")) {
       return "bg-rose-500";
     }
     return "bg-blue-500 animate-pulse";
@@ -68,7 +108,7 @@ function CredentialTableRow({
               </span>
               {hasMultipleRestaurants && (
                 <span className="inline-flex items-center px-1.5 py-0.2 rounded-md text-[9px] font-bold bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/60 shrink-0">
-                  {rawRestaurants.length}
+                  {isFiltering ? displayedRestaurants.length : rawRestaurants.length}
                 </span>
               )}
             </div>
@@ -120,14 +160,14 @@ function CredentialTableRow({
             <AlertCircle className="w-3 h-3 shrink-0" />
             <span>Failed</span>
           </span>
-        ) : rawRestaurants.length > 0 ? (
+        ) : displayedRestaurants.length > 0 ? (
           <div className="space-y-2">
-            {rawRestaurants.map((res, idx) => {
+            {displayedRestaurants.map((res, idx) => {
               const steps = res.steps || [];
               const approvedSteps = steps.filter((s) => s.status === "APPROVED");
               const pendingSteps = steps.filter((s) => s.status !== "APPROVED");
               const currentPendingStep = pendingSteps[0];
-              const listingStatus = (res.resListingStatus || "UNDER REVIEW").toUpperCase();
+              const listingStatus = getRestaurantListingStatus(res);
               const needsAttention = checkIfNeedsAttention(res);
               const lastUpdated = getRestaurantLastUpdated(res);
 
@@ -175,7 +215,7 @@ function CredentialTableRow({
                             listingStatus
                           )}`}
                         />
-                        <span>{res.resListingStatus || "Under Review"}</span>
+                        <span>{listingStatus || (res.resListingStatus ? res.resListingStatus.replace(/_/g, " ") : "UNDER REVIEW")}</span>
                       </span>
                     </div>
                   </div>
@@ -222,8 +262,18 @@ function CredentialTableRow({
               );
             })}
           </div>
+        ) : rawRestaurants.length > 0 ? (
+          <span className="text-xs text-zinc-400 italic">No matching outlets</span>
         ) : (
-          <span className="text-xs text-zinc-400 italic">No requests</span>
+          <div className="flex items-center gap-2 py-1">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-tight uppercase bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>Approved</span>
+            </span>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              All onboarding steps completed · Live
+            </span>
+          </div>
         )}
       </td>
 
@@ -233,9 +283,9 @@ function CredentialTableRow({
           <span className="text-xs text-zinc-300 dark:text-zinc-700">—</span>
         ) : isLoadingRestaurants ? (
           <span className="text-xs text-zinc-400">...</span>
-        ) : rawRestaurants.length > 0 ? (
+        ) : displayedRestaurants.length > 0 ? (
           <div className="space-y-2 flex flex-col items-center">
-            {rawRestaurants.map((res, idx) => {
+            {displayedRestaurants.map((res, idx) => {
               const needsAttention = checkIfNeedsAttention(res);
 
               return (
@@ -316,6 +366,8 @@ function CredentialTableRow({
 
 export default function CredentialTable({
   credentials = [],
+  searchQuery = "",
+  statusFilter = "ALL",
   onEdit,
   onDeleteConfirm,
   onTestConnection,
@@ -349,6 +401,8 @@ export default function CredentialTable({
                 <CredentialTableRow
                   key={item._id}
                   item={item}
+                  searchQuery={searchQuery}
+                  statusFilter={statusFilter}
                   onEdit={onEdit}
                   onDeleteConfirm={onDeleteConfirm}
                   onTestConnection={onTestConnection}
@@ -356,6 +410,12 @@ export default function CredentialTable({
                   isTesting={testingId === item._id}
                 />
               ))}
+              <tr className="hidden only:table-row">
+                <td colSpan={5} className="py-12 text-center text-zinc-400">
+                  <p className="text-sm font-medium">No outlets found matching the selected filter</p>
+                  <p className="text-xs text-zinc-500 mt-1">Try selecting "All Statuses" or adjusting your search query.</p>
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -374,4 +434,5 @@ export default function CredentialTable({
     </div>
   );
 }
+
 

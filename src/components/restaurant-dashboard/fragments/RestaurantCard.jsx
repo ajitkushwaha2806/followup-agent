@@ -2,6 +2,7 @@ import { useState } from "react";
 import StepPipeline from "./StepPipeline";
 import EmailPreviewSheet from "./EmailPreviewSheet";
 import { MapPin, UtensilsCrossed, Copy, Check, Sparkles } from "lucide-react";
+import { getRestaurantListingStatus } from "../helpers";
 
 export default function RestaurantCard({ restaurant, merchantUser }) {
   const [isCopied, setIsCopied] = useState(false);
@@ -15,10 +16,18 @@ export default function RestaurantCard({ restaurant, merchantUser }) {
     }
   };
 
-  const status = (restaurant.resListingStatus || "UNDER REVIEW").toUpperCase();
-  const isUnderReview = status === "UNDER REVIEW";
-  const isReady = status === "READY TO GO LIVE" || status === "LIVE" || status === "APPROVED";
-  const isRejected = status === "REJECTED";
+  const listingStatus = getRestaurantListingStatus(restaurant);
+  const rawStatus = (restaurant.resListingStatus || listingStatus || "UNDER REVIEW").toUpperCase().replace(/_/g, " ");
+  const isReady =
+    listingStatus === "READY TO GO LIVE" ||
+    listingStatus === "APPROVED" ||
+    listingStatus === "LIVE" ||
+    rawStatus.includes("READY") ||
+    rawStatus.includes("LIVE") ||
+    rawStatus.includes("APPROVED");
+  const isRejected = rawStatus.includes("REJECT");
+  const isUnderReview = !isReady && !isRejected && (rawStatus.includes("REVIEW") || listingStatus === "UNDER REVIEW");
+  const displayStatus = restaurant.resListingStatus ? restaurant.resListingStatus.replace(/_/g, " ") : listingStatus;
 
   return (
     <>
@@ -53,22 +62,22 @@ export default function RestaurantCard({ restaurant, merchantUser }) {
                 {isReady ? (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-xs">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>{restaurant.resListingStatus}</span>
+                    <span>{displayStatus}</span>
                   </span>
                 ) : isUnderReview ? (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-xs">
                     <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                    <span>{restaurant.resListingStatus}</span>
+                    <span>{displayStatus}</span>
                   </span>
                 ) : isRejected ? (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 shadow-xs">
                     <span className="w-2 h-2 rounded-full bg-red-500" />
-                    <span>{restaurant.resListingStatus}</span>
+                    <span>{displayStatus}</span>
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 shadow-xs">
                     <span className="w-2 h-2 rounded-full bg-zinc-500" />
-                    <span>{restaurant.resListingStatus}</span>
+                    <span>{displayStatus}</span>
                   </span>
                 )}
 

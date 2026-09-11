@@ -75,13 +75,12 @@ export default function ZomatoCredentialsManager() {
     error: queryError,
     refetch,
   } = useQuery({
-    queryKey: ["credentials", page, limit, debouncedSearch, statusFilter],
+    queryKey: ["credentials", page, limit, debouncedSearch],
     queryFn: () =>
       credentialService.getAll({
         page,
         limit,
         search: debouncedSearch,
-        status: statusFilter,
       }),
   });
 
@@ -277,6 +276,8 @@ export default function ZomatoCredentialsManager() {
       ) : (
         <CredentialTable
           credentials={credentials}
+          searchQuery={searchQuery}
+          statusFilter={statusFilter}
           onEdit={handleOpenModal}
           onDeleteConfirm={setDeleteConfirmItem}
           onTestConnection={handleTestConnection}

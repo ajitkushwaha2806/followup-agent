@@ -23,7 +23,9 @@ export async function GET(req) {
     }
 
     if (status && status.toUpperCase() !== "ALL") {
-      filter.status = status.toUpperCase();
+      if (["ACTIVE", "EXPIRED"].includes(status.toUpperCase())) {
+        filter.status = status.toUpperCase();
+      }
     }
 
     if (search) {
