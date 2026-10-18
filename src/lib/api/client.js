@@ -5,7 +5,9 @@ import Credential from "@/models/Credential";
 
 function parseProxyEntry(entry) {
     if (!entry) return null;
-    const trimmed = entry.trim();
+    let trimmed = entry.trim();
+    if (!trimmed) return null;
+    trimmed = trimmed.replace(/^["']|["']$/g, "").trim();
     if (!trimmed) return null;
 
     if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
@@ -42,21 +44,68 @@ function getProxyList() {
     return entries;
 }
 
+const proxyFailureTracker = new Map(); // proxyUrl -> timestamp of last failure
+const PROXY_COOLDOWN_MS = 5 * 60 * 1000; // 5-minute cooldown for failing proxies
+
+function markProxyFailed(proxyUrl) {
+    if (!proxyUrl) return;
+    proxyFailureTracker.set(proxyUrl, Date.now());
+}
+
+function isProxyHealthy(proxyUrl) {
+    if (!proxyUrl) return false;
+    const failedAt = proxyFailureTracker.get(proxyUrl);
+    if (!failedAt) return true;
+    if (Date.now() - failedAt > PROXY_COOLDOWN_MS) {
+        proxyFailureTracker.delete(proxyUrl);
+        return true;
+    }
+    return false;
+}
+
+function getAvailableProxies() {
+    const allProxies = getProxyList();
+    if (allProxies.length === 0) return [];
+    const healthy = allProxies.filter(isProxyHealthy);
+    if (healthy.length === 0) {
+        // If all are marked failed, clear cooldown and retry list rather than stalling completely
+        proxyFailureTracker.clear();
+        return allProxies;
+    }
+    return healthy;
+}
+
 let currentProxyIndex = 0;
 
-function getNextProxyAgent() {
-    const proxies = getProxyList();
+function getNextProxyConfig() {
+    const proxies = getAvailableProxies();
     if (proxies.length === 0) return null;
 
     const proxyUrl = proxies[currentProxyIndex % proxies.length];
     currentProxyIndex = (currentProxyIndex + 1) % proxies.length;
 
     try {
-        return new HttpsProxyAgent(proxyUrl);
+        const httpsAgent = new HttpsProxyAgent(proxyUrl);
+        return { proxyUrl, httpsAgent };
     } catch (err) {
         console.error("[apiClient] Invalid proxy URL:", proxyUrl, err.message);
+        markProxyFailed(proxyUrl);
         return null;
     }
+}
+
+function isProxyError(err) {
+    if (!err) return false;
+    const status = err.response?.status || err.status;
+    const code = String(err.code || "").toUpperCase();
+    const msg = (err.message || "").toLowerCase();
+
+    if (status === 407) return true;
+    if (msg.includes("proxy authentication required") || msg.includes("proxy") || msg.includes("407")) return true;
+    if (["ECONNREFUSED", "ETIMEDOUT", "EHOSTUNREACH", "ENOTFOUND", "ECONNRESET", "ESOCKETTIMEDOUT"].includes(code)) return true;
+    if (/connect econnrefused|connect etimedout|socket hang up|tunneling socket/i.test(msg)) return true;
+
+    return false;
 }
 
 // Global serialized rate-limiter: enforces minimum 2000ms (2s) between Zomato API requests
@@ -161,34 +210,55 @@ export async function apiClient({
                 : "application/json";
     }
 
-    const httpsAgent = getNextProxyAgent();
+    const allProxies = getProxyList();
+    const maxAttempts = allProxies.length > 0 ? Math.min(allProxies.length, 3) : 1;
+    let lastError = null;
 
-    try {
-        const { data: response } = await axios.request({
-            baseURL: targetBaseURL,
-            url: endpoint,
-            method,
-            data,
-            params,
-            headers: finalHeaders,
-            ...(httpsAgent && {
-                httpsAgent,
-                httpAgent: httpsAgent,
-                proxy: false,
-            }),
-        });
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const proxyConfig = getNextProxyConfig();
+        const httpsAgent = proxyConfig?.httpsAgent;
+        const proxyUrl = proxyConfig?.proxyUrl;
 
-        return response;
-    } catch (err) {
-        if (axios.isAxiosError(err)) {
-            const errorMsg =
-                err.response?.data?.message ||
-                err.response?.data?.error ||
-                err.response?.statusText ||
-                err.message;
-            throw new Error(errorMsg);
+        try {
+            const { data: response } = await axios.request({
+                baseURL: targetBaseURL,
+                url: endpoint,
+                method,
+                data,
+                params,
+                headers: finalHeaders,
+                ...(httpsAgent && {
+                    httpsAgent,
+                    httpAgent: httpsAgent,
+                    proxy: false,
+                }),
+                timeout: 15000,
+            });
+
+            return response;
+        } catch (err) {
+            lastError = err;
+            if (isProxyError(err) && httpsAgent) {
+                markProxyFailed(proxyUrl);
+                console.warn(
+                    `[apiClient] Proxy failure (attempt ${attempt + 1}/${maxAttempts}) using ${proxyUrl}: ${err.message}. Retrying with next proxy...`
+                );
+                if (attempt < maxAttempts - 1) {
+                    continue;
+                }
+            }
+            break;
         }
-
-        throw err;
     }
+
+    if (axios.isAxiosError(lastError)) {
+        const errorMsg =
+            lastError.response?.data?.message ||
+            lastError.response?.data?.error ||
+            lastError.response?.statusText ||
+            lastError.message;
+        throw new Error(errorMsg);
+    }
+
+    throw lastError;
 }
